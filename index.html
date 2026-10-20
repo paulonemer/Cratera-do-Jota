@@ -2132,11 +2132,78 @@
           if (discordEl) discordEl.classList.remove('hidden');
           if (modeText) modeText.textContent = 'Modo Sala 3D';
           renderDiscordGrid();
+          renderWebcamDock();
         } else {
           if (webglEl) webglEl.style.display = 'block';
           if (discordEl) discordEl.classList.add('hidden');
           if (modeText) modeText.textContent = 'Modo Discord';
+          renderWebcamDock();
         }
+      }
+
+      function renderWebcamDock() {
+        const dock = document.getElementById('webcam-dock-3d');
+        const items = document.getElementById('webcam-dock-items');
+        if (!dock || !items) return;
+
+        if (APP.viewMode === '2d') {
+          dock.classList.add('hidden');
+          return;
+        }
+
+        const activeCams = [];
+        if (APP.isWebcamActive && APP.localWebcamStream) {
+          activeCams.push({
+            id: 'local',
+            name: `${APP.myUser.name} (Você)`,
+            stream: APP.localWebcamStream,
+            isLocal: true,
+            isSpeaking: APP.myUser.isSpeaking
+          });
+        }
+
+        APP.peers.forEach((peer, peerId) => {
+          if (peer.isWebcamActive && peer.webcamStream) {
+            activeCams.push({
+              id: peerId,
+              name: peer.name,
+              stream: peer.webcamStream,
+              isLocal: false,
+              isSpeaking: peer.isSpeaking
+            });
+          }
+        });
+
+        if (activeCams.length === 0) {
+          dock.classList.add('hidden');
+          items.innerHTML = '';
+          return;
+        }
+
+        dock.classList.remove('hidden');
+        items.innerHTML = '';
+
+        activeCams.forEach(cam => {
+          const card = document.createElement('div');
+          card.id = `webcam-tile-${cam.id}`;
+          card.className = `relative rounded-2xl overflow-hidden bg-slate-900 border ${cam.isSpeaking ? 'speaking-tile-active border-emerald-400' : 'border-indigo-500/40'} shadow-lg aspect-video flex items-center justify-center transition-all`;
+
+          const video = document.createElement('video');
+          video.autoplay = true;
+          video.playsInline = true;
+          video.muted = true;
+          video.className = 'w-full h-full object-cover';
+          video.srcObject = cam.stream;
+          video.play().catch(() => {});
+          card.appendChild(video);
+
+          const label = document.createElement('div');
+          label.className = 'absolute bottom-1 left-1.5 right-1.5 px-2 py-0.5 rounded-lg bg-slate-950/80 backdrop-blur-sm text-[10px] font-bold text-white flex items-center justify-between border border-white/10';
+          label.innerHTML = `<span class="truncate">${cam.name}</span><span class="w-1.5 h-1.5 rounded-full ${cam.isSpeaking ? 'bg-emerald-400 animate-ping' : 'bg-indigo-400'}"></span>`;
+          card.appendChild(label);
+
+          items.appendChild(card);
+        });
       }
 
       function renderDiscordGrid() {
@@ -2144,31 +2211,135 @@
         if (!grid) return;
         grid.innerHTML = '';
 
+        // 1. Tile Local
         const myTile = document.createElement('div');
-        myTile.className = `relative rounded-3xl p-4 flex flex-col items-center justify-center min-h-[170px] bg-slate-900 border ${APP.myUser.isSpeaking ? 'border-emerald-400' : 'border-slate-800'}`;
-        myTile.innerHTML = `<span class="font-bold text-white">${APP.myUser.name} (Você)</span>`;
+        myTile.className = `relative rounded-3xl overflow-hidden min-h-[190px] bg-slate-900/90 border ${APP.myUser.isSpeaking ? 'speaking-tile-active border-emerald-400 shadow-emerald-500/20' : 'border-slate-800'} shadow-xl flex flex-col items-center justify-center transition-all`;
+
+        if (APP.isWebcamActive && APP.localWebcamStream) {
+          const myVid = document.createElement('video');
+          myVid.autoplay = true;
+          myVid.playsInline = true;
+          myVid.muted = true;
+          myVid.className = 'w-full h-full object-cover';
+          myVid.srcObject = APP.localWebcamStream;
+          myVid.play().catch(() => {});
+          myTile.appendChild(myVid);
+        } else {
+          myTile.innerHTML = `
+            <div class="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center text-white text-2xl font-bold mb-2 shadow-lg" style="background-color: ${APP.myUser.color || '#6366f1'}">
+              ${APP.myUser.hologramUrl ? `<img src="${APP.myUser.hologramUrl}" class="w-full h-full object-cover rounded-2xl" />` : (APP.myUser.name || 'V').substring(0, 1).toUpperCase()}
+            </div>
+            <span class="font-bold text-white text-sm">${APP.myUser.name}</span>
+          `;
+        }
+
+        const myBadge = document.createElement('div');
+        myBadge.className = 'absolute bottom-2.5 left-2.5 px-2.5 py-1 rounded-xl bg-slate-950/80 backdrop-blur-md text-[11px] font-bold text-white flex items-center gap-1.5 border border-white/10';
+        myBadge.innerHTML = `<span class="w-2 h-2 rounded-full ${APP.myUser.isSpeaking ? 'bg-emerald-400 animate-ping' : 'bg-slate-400'}"></span><span>${APP.myUser.name} (Você)</span>`;
+        myTile.appendChild(myBadge);
         grid.appendChild(myTile);
 
-        APP.peers.forEach(p => {
+        // 2. Tiles dos colegas
+        APP.peers.forEach((p, pId) => {
           const tile = document.createElement('div');
-          tile.className = `relative rounded-3xl p-4 flex flex-col items-center justify-center min-h-[170px] bg-slate-900 border ${p.isSpeaking ? 'border-emerald-400' : 'border-slate-800'}`;
-          tile.innerHTML = `<span class="font-bold text-slate-200">${p.name}</span>`;
+          tile.className = `relative rounded-3xl overflow-hidden min-h-[190px] bg-slate-900/90 border ${p.isSpeaking ? 'speaking-tile-active border-emerald-400 shadow-emerald-500/20' : 'border-slate-800'} shadow-xl flex flex-col items-center justify-center transition-all`;
+
+          if (p.isWebcamActive && p.webcamStream) {
+            const pVid = document.createElement('video');
+            pVid.autoplay = true;
+            pVid.playsInline = true;
+            pVid.muted = true;
+            pVid.className = 'w-full h-full object-cover';
+            pVid.srcObject = p.webcamStream;
+            pVid.play().catch(() => {});
+            tile.appendChild(pVid);
+          } else {
+            tile.innerHTML = `
+              <div class="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center text-white text-2xl font-bold mb-2 shadow-lg" style="background-color: ${p.color || '#10b981'}">
+                ${(p.name || 'A').substring(0, 1).toUpperCase()}
+              </div>
+              <span class="font-bold text-slate-200 text-sm">${p.name}</span>
+            `;
+          }
+
+          const badge = document.createElement('div');
+          badge.className = 'absolute bottom-2.5 left-2.5 px-2.5 py-1 rounded-xl bg-slate-950/80 backdrop-blur-md text-[11px] font-bold text-white flex items-center gap-1.5 border border-white/10';
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full ${p.isSpeaking ? 'bg-emerald-400 animate-ping' : 'bg-slate-400'}"></span><span>${p.name} ${p.isHost ? '👑' : ''}</span>`;
+          tile.appendChild(badge);
           grid.appendChild(tile);
         });
       }
 
+      function updateWebcamUI(isActive) {
+        const btn = document.getElementById('btn-toggle-webcam');
+        if (!btn) return;
+        if (isActive) {
+          btn.className = 'flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl sm:rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-lg shadow-indigo-600/30 active:scale-95 border border-indigo-400/50';
+        } else {
+          btn.className = 'flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl sm:rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700 active:scale-95';
+        }
+      }
+
       async function toggleWebcam() {
         if (APP.isWebcamActive) {
-          if (APP.localWebcamStream) APP.localWebcamStream.getTracks().forEach(t => t.stop());
+          if (APP.localWebcamStream) {
+            APP.localWebcamStream.getTracks().forEach(t => t.stop());
+            APP.localWebcamStream = null;
+          }
           APP.isWebcamActive = false;
+          APP.myUser.isWebcamActive = false;
+          updateWebcamUI(false);
+
+          broadcastToPeers({ type: 'webcam_state', active: false });
+
+          renderWebcamDock();
+          if (APP.viewMode === '2d') renderDiscordGrid();
           showToast('Webcam desligada.', 'info');
         } else {
           try {
-            APP.localWebcamStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            const constraints = {
+              video: {
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+                facingMode: 'user'
+              },
+              audio: false
+            };
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            APP.localWebcamStream = stream;
             APP.isWebcamActive = true;
-            showToast('Webcam ligada!', 'success');
+            APP.myUser.isWebcamActive = true;
+            updateWebcamUI(true);
+
+            // Transmite imediatamente para TODOS os colegas na sala
+            APP.peers.forEach((peerData, peerId) => {
+              if (APP.peer && !peerId.startsWith('bot_')) {
+                APP.peer.call(peerId, stream, { metadata: { type: 'webcam' } });
+              }
+            });
+
+            broadcastToPeers({ type: 'webcam_state', active: true });
+
+            const track = stream.getVideoTracks()[0];
+            if (track) {
+              track.onended = () => {
+                if (APP.isWebcamActive) toggleWebcam();
+              };
+            }
+
+            renderWebcamDock();
+            if (APP.viewMode === '2d') renderDiscordGrid();
+            showToast('Webcam ligada com sucesso! 📷', 'success');
           } catch (e) {
-            showToast('Erro ao ligar webcam.', 'warning');
+            console.error('Erro ao acessar webcam:', e);
+            updateWebcamUI(false);
+            if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+              showToast('Permissão de câmera negada pelo navegador.', 'warning');
+            } else if (e.name === 'NotFoundError') {
+              showToast('Nenhuma câmera encontrada no dispositivo.', 'warning');
+            } else {
+              showToast('Não foi possível ativar a webcam neste aparelho.', 'warning');
+            }
           }
         }
       }
@@ -2618,6 +2789,9 @@
           if (APP.localAudioStream && APP.peer) {
             APP.peer.call(conn.peer, APP.localAudioStream, { metadata: { type: 'audio' } });
           }
+          if (APP.localWebcamStream && APP.isWebcamActive && APP.peer) {
+            APP.peer.call(conn.peer, APP.localWebcamStream, { metadata: { type: 'webcam' } });
+          }
           if (APP.localScreenStream && APP.peer) {
             APP.peer.call(conn.peer, APP.localScreenStream, { metadata: { type: 'screen' } });
           }
@@ -2670,7 +2844,20 @@
         }
         peerData.webcamStream = stream;
         peerData.isWebcamActive = true;
+
+        const track = stream.getVideoTracks()[0];
+        if (track) {
+          track.onended = () => {
+            peerData.isWebcamActive = false;
+            peerData.webcamStream = null;
+            renderWebcamDock();
+            if (APP.viewMode === '2d') renderDiscordGrid();
+          };
+        }
+
+        renderWebcamDock();
         if (APP.viewMode === '2d') renderDiscordGrid();
+        showToast(`${peerData.name} ligou a webcam! 📷`, 'info');
       }
 
       function applyRemoteScreenToTV(stream, peerId) {
@@ -2902,6 +3089,16 @@
             }
             break;
 
+          case 'webcam_state':
+            const wp = APP.peers.get(peerId);
+            if (wp) {
+              wp.isWebcamActive = !!data.active;
+              if (!data.active) wp.webcamStream = null;
+              renderWebcamDock();
+              if (APP.viewMode === '2d') renderDiscordGrid();
+            }
+            break;
+
           case 'pos':
             const posPeer = APP.peers.get(peerId);
             if (posPeer) {
@@ -3005,6 +3202,8 @@
           }
           APP.peers.delete(peerId);
           updatePeersListUI();
+          renderWebcamDock();
+          if (APP.viewMode === '2d') renderDiscordGrid();
         }
       }
 
@@ -3376,6 +3575,18 @@
         });
 
         // Detecção e seleção de dispositivos de áudio
+        // Minimizar / Restaurar dock de webcams 3D
+        const btnMinDock = document.getElementById('btn-minimize-webcam-dock');
+        if (btnMinDock) {
+          btnMinDock.addEventListener('click', () => {
+            const items = document.getElementById('webcam-dock-items');
+            if (items) {
+              items.classList.toggle('hidden');
+              btnMinDock.textContent = items.classList.contains('hidden') ? '+' : '_';
+            }
+          });
+        }
+
         const btnDetectLobby = document.getElementById('btn-detect-audio-lobby');
         if (btnDetectLobby) {
           btnDetectLobby.addEventListener('click', () => {
