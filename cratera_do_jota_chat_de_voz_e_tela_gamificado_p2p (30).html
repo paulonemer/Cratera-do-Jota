@@ -1,0 +1,3493 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Cratera do Jota - Chat de Voz e Tela Gamificado P2P</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <!-- Three.js (r128) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- PeerJS P2P WebRTC -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      overflow: hidden;
+      background-color: #0b0f19;
+      color: #f8fafc;
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #webgl-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .glass-panel-accent {
+      background: rgba(23, 30, 49, 0.92);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.55);
+    }
+
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.5);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.5);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.8);
+    }
+
+    @keyframes speaking-glow {
+      0%, 100% {
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.4), 0 0 15px rgba(16, 185, 129, 0.6);
+        border-color: rgba(52, 211, 153, 0.9);
+      }
+      50% {
+        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.7), 0 0 25px rgba(16, 185, 129, 0.8);
+        border-color: rgba(110, 231, 183, 1);
+      }
+    }
+    .speaking-tile-active {
+      animation: speaking-glow 1.2s infinite ease-in-out;
+    }
+
+    @keyframes float-hologram {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-8px) rotate(2deg); }
+    }
+    .hologram-anim {
+      animation: float-hologram 3s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="relative w-full h-full overflow-hidden select-none bg-slate-950 text-slate-100">
+
+  <audio id="tv-stream-audio" autoplay playsinline class="hidden"></audio>
+  <video id="tv-screen-source-video" autoplay playsinline muted class="hidden" style="position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;"></video>
+  <!-- 3D Canvas Layer -->
+  <div id="webgl-container"></div>
+
+  <!-- MODO DISCORD 2D -->
+  <div id="discord-view-container" class="fixed inset-0 z-10 flex flex-col bg-slate-950/95 hidden overflow-hidden pt-16 pb-28 px-4 sm:px-6">
+    <div class="max-w-7xl w-full mx-auto flex-1 flex flex-col justify-center overflow-hidden">
+      <!-- Screen share featured view in Discord mode -->
+      <div id="discord-featured-screen" class="hidden mb-3 flex-1 min-h-[300px] max-h-[60vh] bg-slate-900/90 rounded-3xl border border-indigo-500/30 overflow-hidden relative shadow-2xl flex items-center justify-center">
+        <video id="discord-screen-video" class="w-full h-full object-contain" autoplay playsinline></video>
+        <div class="absolute top-3 left-3 glass-panel px-3 py-1.5 rounded-xl flex items-center gap-2 text-xs font-semibold text-white shadow-lg">
+          <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+          <span>Transmissão de Tela: </span>
+          <span id="discord-screen-author" class="text-indigo-300 font-bold">Você</span>
+        </div>
+      </div>
+
+      <!-- Grid de Participantes -->
+      <div id="discord-participants-grid" class="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5 overflow-y-auto max-h-full p-1 items-center justify-center content-center"></div>
+    </div>
+  </div>
+
+  <!-- DOCK DE WEBCAM NO MODO 3D (CANTO ESQUERDO DA TELA) -->
+  <div id="webcam-dock-3d" class="fixed left-4 top-20 z-20 flex flex-col gap-2.5 max-h-[72vh] overflow-y-auto w-48 sm:w-56 pointer-events-auto hidden">
+    <div class="flex items-center justify-between px-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+      <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> Webcams Ativas</span>
+      <button id="btn-minimize-webcam-dock" type="button" class="hover:text-white text-xs px-1" title="Minimizar dock">_</button>
+    </div>
+    <div id="webcam-dock-items" class="flex flex-col gap-2.5"></div>
+  </div>
+
+  <!-- Toast Notification Overlay -->
+  <div id="toast-container" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 items-center pointer-events-none w-full max-w-md px-4"></div>
+
+  <!-- LOBBY MODAL (Entrada, Perfil Persistente, Sala Universal & 20 Salas P2P) -->
+  <div id="lobby-modal" class="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto">
+    <div class="glass-panel-accent w-full max-w-lg rounded-3xl p-5 sm:p-7 flex flex-col shadow-2xl relative border border-indigo-500/30 my-auto">
+      
+              <!-- ALERTA DE CONTEXTO SEGURO / SMARTPHONE -->
+        <div id="lobby-secure-warning" class="hidden p-3 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs space-y-1.5">
+          <div class="flex items-center gap-2 font-bold text-amber-300">
+            <span>📱</span> Dica Importante para Celular (HTTP vs HTTPS)
+          </div>
+          <p class="text-[11px] leading-relaxed text-amber-100/90">
+            Se você abriu no celular pelo IP da rede local (ex: <code class="bg-slate-900 px-1 py-0.5 rounded">http://192.168.x.x</code>), navegadores móveis bloqueiam o microfone por regra de segurança (exigem <b>HTTPS</b>).
+          </p>
+          <div class="text-[10px] text-amber-200 bg-slate-950/60 p-2.5 rounded-xl border border-amber-500/30 space-y-1.5">
+            <div><b>🎧 Modo Ouvinte:</b> Você pode entrar na sala agora mesmo! Verá todos, assistirá à tela e <u>ouvirá os outros participantes pelo celular</u>.</div>
+            <div><b>🎙️ Para falar pelo Chrome do celular:</b> Abra a aba <span class="text-white select-all font-mono bg-slate-900 px-1 rounded">chrome://flags/#unsafely-treat-insecure-origin-as-secure</span>, adicione a URL da página, marque como <b>Enabled</b> e reinicie o Chrome!</div>
+            <div><b>🔒 HTTPS no computador:</b> No terminal do seu PC, rode <code class="text-white font-mono bg-slate-900 px-1 rounded">npx localtunnel --port 8000</code> para criar um link <b>https://...</b> seguro com microfone liberado direto.</div>
+          </div>
+        </div>
+
+      <!-- Brand & Title -->
+      <div class="text-center mb-4">
+        <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white shadow-lg shadow-indigo-500/30 mb-2 p-2.5">
+          <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"></path>
+          </svg>
+        </div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-indigo-200 to-violet-400 bg-clip-text text-transparent">
+          Cratera do Jota
+        </h1>
+        <p class="text-xs text-slate-400 mt-1">Chat de voz isométrico, tela cheia e sala virtual P2P Global</p>
+      </div>
+
+      <!-- Configurações do Avatar -->
+      <div class="space-y-3 mb-4">
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">Foto de Perfil & Apelido</label>
+            <span class="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">💾 Salvo no navegador</span>
+          </div>
+          
+          <div class="flex items-center gap-3 bg-slate-900/70 p-2.5 rounded-2xl border border-slate-800">
+            <!-- Prévia da Foto do Avatar -->
+            <div class="relative group cursor-pointer" id="btn-lobby-avatar-trigger" title="Clique para escolher foto ou sticker">
+              <div id="lobby-avatar-preview" class="w-12 h-12 rounded-2xl bg-indigo-600 border-2 border-indigo-400/60 flex items-center justify-center font-extrabold text-xl text-white shadow-lg overflow-hidden">
+                <img id="lobby-avatar-img" class="w-full h-full object-cover hidden" alt="Avatar">
+                <span id="lobby-avatar-letter">V</span>
+              </div>
+              <div class="absolute -bottom-1 -right-1 bg-indigo-500 text-white rounded-full p-1 text-[10px] shadow border border-slate-900">📷</div>
+            </div>
+
+            <!-- Input de Nome / Apelido -->
+            <div class="flex-1">
+              <div class="relative">
+                <input id="input-username" type="text" maxlength="15" value="Viajante" placeholder="Seu apelido..."
+                       class="w-full px-3.5 py-1.5 bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 text-sm font-medium transition">
+                <span class="absolute right-2.5 top-2 text-slate-500 text-[10px]">Max 15</span>
+              </div>
+              <div class="flex items-center gap-1.5 mt-1.5">
+                <input id="input-lobby-photo-file" type="file" accept="image/png, image/jpeg, image/webp" class="hidden">
+                <button id="btn-lobby-upload-photo" type="button" class="text-[11px] text-indigo-300 hover:text-white px-2 py-0.5 rounded-lg bg-indigo-950/60 hover:bg-indigo-600/40 border border-indigo-500/30 transition flex items-center gap-1">
+                  <span>📷</span> Foto
+                </button>
+                <button id="btn-lobby-choose-sticker" type="button" class="text-[11px] text-slate-300 hover:text-white px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition flex items-center gap-1">
+                  <span>✨</span> Adesivos
+                </button>
+                <button id="btn-lobby-remove-photo" type="button" class="text-[10px] text-rose-400 hover:text-rose-300 px-1.5 py-0.5 transition hidden">
+                  Remover
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cor do Avatar -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Cor do seu Personagem</label>
+          <div class="flex items-center justify-between gap-2" id="color-picker-container">
+            <button type="button" data-color="#6366f1" class="avatar-color-btn w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 border-white shadow-md transition-all scale-110" style="background-color: #6366f1;"></button>
+            <button type="button" data-color="#ec4899" class="avatar-color-btn w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 border-transparent hover:scale-105 transition-all" style="background-color: #ec4899;"></button>
+            <button type="button" data-color="#10b981" class="avatar-color-btn w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 border-transparent hover:scale-105 transition-all" style="background-color: #10b981;"></button>
+            <button type="button" data-color="#f59e0b" class="avatar-color-btn w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 border-transparent hover:scale-105 transition-all" style="background-color: #f59e0b;"></button>
+            <button type="button" data-color="#06b6d4" class="avatar-color-btn w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 border-transparent hover:scale-105 transition-all" style="background-color: #06b6d4;"></button>
+            <button type="button" data-color="#8b5cf6" class="avatar-color-btn w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 border-transparent hover:scale-105 transition-all" style="background-color: #8b5cf6;"></button>
+          </div>
+        </div>
+
+        <!-- CONFIGURAÇÃO DE DISPOSITIVOS DE ÁUDIO -->
+        <div class="bg-slate-900/70 p-3 rounded-2xl border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-indigo-300">🎙️ Dispositivos de Áudio</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="btn-detect-audio-lobby" type="button" class="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold px-2 py-0.5 rounded bg-indigo-950/60 border border-indigo-500/30 transition flex items-center gap-1 active:scale-95" title="Detectar nomes reais dos aparelhos">
+                <span>🔄</span> Detectar Nomes
+              </button>
+              <div class="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div id="mic-test-bar" class="w-0 h-full bg-emerald-500 transition-all duration-75"></div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <div>
+              <label class="block text-[11px] text-slate-400 mb-1">Microfone (Entrada):</label>
+              <select id="select-audio-input" class="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 text-xs focus:outline-none focus:border-indigo-500">
+                <option value="">Microfone Padrão do Sistema</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] text-slate-400 mb-1">Alto-falante / Fone (Saída):</label>
+              <select id="select-audio-output" class="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 text-xs focus:outline-none focus:border-indigo-500">
+                <option value="">Alto-falante / Fone Padrão</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 🪐 DESTAQUE: SALA UNIVERSAL "CRATERA DO JOTA" -->
+        <div class="p-3.5 rounded-2xl bg-gradient-to-br from-indigo-950/90 via-slate-900/90 to-violet-950/90 border border-indigo-500/50 shadow-xl space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-base">🪐</span>
+              <div>
+                <div class="font-bold text-xs sm:text-sm text-white flex items-center gap-1.5">
+                  <span>Cratera do Jota</span>
+                  <span class="text-[9px] px-1.5 py-0.2 rounded-full bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 font-normal">Sala Universal</span>
+                </div>
+                <div id="status-universal-room" class="text-[10px] text-indigo-300">Ponto de encontro oficial central</div>
+              </div>
+            </div>
+            <span id="badge-universal-count" class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">1º vira Host 👑</span>
+          </div>
+
+          <button id="btn-enter-universal-room" type="button" class="w-full py-2.5 px-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition active:scale-[0.99] text-xs sm:text-sm">
+            <span>✨</span> Entrar na Cratera do Jota
+          </button>
+        </div>
+
+        <!-- 📡 RADAR DE 20 SALAS FIXAS COM STATUS AO VIVO -->
+        <div class="bg-slate-900/60 p-3 rounded-2xl border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">📡 20 Salas Fixas</span>
+              <span id="radar-status-indicator" class="text-[10px] text-slate-400">• Varrendo...</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button id="btn-quick-join" type="button" class="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/30 transition flex items-center gap-1 active:scale-95">
+                ⚡ Entrada Rápida
+              </button>
+              <button id="btn-rescan-radar" type="button" title="Atualizar Salas" class="text-[10px] text-slate-400 hover:text-white px-1.5 py-0.5 rounded bg-slate-800 transition">
+                🔄
+              </button>
+            </div>
+          </div>
+
+          <!-- Grid dos 20 botões de sala -->
+          <div id="radar-rooms-grid" class="grid grid-cols-5 sm:grid-cols-10 gap-1.5 max-h-36 overflow-y-auto pr-0.5"></div>
+        </div>
+
+        <!-- HISTÓRICO DE SALAS -->
+        <div id="section-cached-rooms" class="bg-slate-900/50 p-2.5 rounded-2xl border border-slate-800/80">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1">
+              <span>💾</span> Salas Recentes no Cache
+            </span>
+            <span class="text-[10px] text-indigo-400">1º a entrar vira Host 👑</span>
+          </div>
+          <div id="cached-rooms-list" class="flex flex-wrap gap-1.5">
+            <span class="text-[11px] text-slate-500 italic py-1">Nenhuma sala salva ainda no histórico.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Abas Criar vs Entrar Personalizado -->
+      <div class="space-y-3">
+        <div class="flex rounded-xl bg-slate-900/90 p-1 border border-slate-800 text-xs font-semibold">
+          <button id="tab-create-btn" type="button" class="flex-1 py-1.5 rounded-lg bg-indigo-600 text-white shadow-sm transition">
+            Criar Nova Sala
+          </button>
+          <button id="tab-join-btn" type="button" class="flex-1 py-1.5 rounded-lg text-slate-400 hover:text-white transition">
+            Entrar com Código
+          </button>
+        </div>
+
+        <!-- Seção Criar -->
+        <div id="section-create" class="space-y-2">
+          <div class="flex items-center gap-2">
+            <input id="input-create-room-code" type="text" value="sala-1" 
+                   class="flex-1 px-3.5 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-white font-mono text-sm uppercase tracking-wider focus:outline-none focus:border-indigo-500">
+            <button id="btn-random-code" type="button" title="Gerar outro código" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 hover:text-white border border-slate-700 transition">
+              🎲
+            </button>
+          </div>
+          <button id="btn-create-room" type="button" class="w-full py-2.5 px-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition active:scale-[0.99] text-xs sm:text-sm">
+            Iniciar e Criar Sala
+          </button>
+        </div>
+
+        <!-- Seção Entrar -->
+        <div id="section-join" class="space-y-2 hidden">
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Código ou Link da Sala</label>
+            <input id="input-room-code" type="text" placeholder="Ex: sala-1 (deixe vazio para sala-1)" 
+                   class="w-full px-3.5 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 text-sm font-mono uppercase tracking-wider">
+          </div>
+          <button id="btn-join-room" type="button" class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 transition active:scale-[0.99] text-xs sm:text-sm">
+            Entrar na Sala
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-3 pt-2.5 border-t border-slate-800/80 text-center">
+        <button id="btn-solo-demo" type="button" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium inline-flex items-center gap-1.5 transition">
+          Entrar em Modo Solo / Teste Instantâneo
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- HUD SUPERIOR -->
+  <header class="fixed top-2 sm:top-3 left-2 sm:left-3 right-2 sm:right-3 z-30 flex items-center justify-between pointer-events-none gap-1 sm:gap-2">
+    <div class="glass-panel rounded-xl sm:rounded-2xl px-2.5 sm:px-3.5 py-1.5 sm:py-2 flex items-center gap-2 pointer-events-auto shadow-lg shrink min-w-0">
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink min-w-0">
+        <span id="hud-connection-ping" class="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0"></span>
+        <span id="hud-connection-dot" class="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-400 -ml-3.5 sm:-ml-4.5 shrink-0"></span>
+        <span id="hud-room-title" class="font-bold text-[11px] sm:text-sm text-white tracking-wide truncate max-w-[90px] sm:max-w-none">Sala: Carregando...</span>
+        <span id="hud-admin-badge" class="hidden text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold shrink-0">👑 HOST</span>
+        <span id="hud-status-text" class="hidden sm:inline-block text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Conectado (1)</span>
+      </div>
+      
+      <div class="h-4 w-px bg-slate-700 hidden md:block"></div>
+
+      <div id="hud-zone-badge" class="hidden md:flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-indigo-500/20 text-indigo-300 text-xs font-medium border border-indigo-500/30">
+        <span id="hud-zone-icon">🛋️</span>
+        <span id="hud-zone-name">Lounge Principal</span>
+      </div>
+    </div>
+
+    <!-- Botões Superiores com Controles de Zoom -->
+    <div class="flex items-center gap-1 sm:gap-2 pointer-events-auto shrink-0">
+      <!-- Controles de Zoom da Câmera -->
+      <div class="flex items-center glass-panel rounded-lg sm:rounded-xl p-0.5 border border-slate-700/60 shadow-lg">
+        <button id="btn-zoom-in" type="button" title="Aproximar Câmera (+)" class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg hover:bg-slate-800 text-slate-200 flex items-center justify-center transition active:scale-90 font-bold">
+          <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+        </button>
+        <button id="btn-zoom-reset" type="button" title="Redefinir Zoom" class="px-1 text-[9px] sm:text-[10px] font-mono text-indigo-300 hover:text-white">100%</button>
+        <button id="btn-zoom-out" type="button" title="Afastar Câmera (-)" class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg hover:bg-slate-800 text-slate-200 flex items-center justify-center transition active:scale-90 font-bold">
+          <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20 12H4"/></svg>
+        </button>
+      </div>
+
+      <button id="btn-toggle-view-mode" type="button" title="Alternar entre Sala 3D Virtual e Modo Grade Discord (2D)"
+              class="glass-panel hover:bg-slate-800 text-white p-1.5 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-lg border border-indigo-500/40 bg-indigo-950/40">
+        <svg class="w-4 h-4 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        <span id="view-mode-text" class="hidden sm:inline">Modo Discord</span>
+      </button>
+
+      <button id="btn-toggle-settings" type="button" title="Configurações de Áudio (Microfone e Alto-falante)"
+              class="glass-panel hover:bg-slate-800 text-slate-300 hover:text-white p-1.5 sm:px-2.5 sm:py-2 rounded-lg sm:rounded-xl text-xs font-semibold flex items-center gap-1 transition active:scale-95 shadow-lg border border-slate-700/60">
+        <svg class="w-4 h-4 text-slate-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      </button>
+
+      <button id="btn-share-room" type="button" title="Copiar Link para Convidar Amigos"
+              class="glass-panel hover:bg-slate-800 text-white p-1.5 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-lg border border-slate-700/60">
+        <svg class="w-4 h-4 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+        <span class="hidden lg:inline">Convidar</span>
+      </button>
+
+      <button id="btn-toggle-peers" type="button" title="Pessoas na Sala, Pings & Controles de Volume"
+              class="glass-panel hover:bg-slate-800 text-white p-1.5 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-lg border border-slate-700/60">
+        <svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        <span id="hud-peer-count" class="font-mono text-emerald-400 text-xs">1</span>
+      </button>
+
+      <button id="btn-toggle-help" type="button" title="Guia de Controles"
+              class="glass-panel hover:bg-slate-800 text-slate-300 hover:text-white p-1.5 sm:p-2 rounded-lg sm:rounded-xl text-xs transition active:scale-95 shadow-lg border border-slate-700/60 hidden sm:block">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- BANNER INTERATIVO DE ZONA -->
+  <div id="zone-action-banner" class="fixed top-14 sm:top-20 left-1/2 -translate-x-1/2 z-30 transition-all duration-300 transform -translate-y-4 opacity-0 pointer-events-none max-w-lg w-full px-3 sm:px-4">
+    <div class="glass-panel-accent rounded-2xl p-3 sm:p-4 flex items-center justify-between border border-indigo-400/40 shadow-2xl gap-2">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-indigo-600/30 border border-indigo-400/40 flex items-center justify-center text-indigo-300 text-lg sm:text-xl shrink-0">
+          📺
+        </div>
+        <div class="truncate">
+          <div class="font-bold text-xs sm:text-sm text-white flex items-center gap-1.5">
+            <span class="truncate">Cinema & TV</span>
+            <span class="text-[9px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded-full border border-indigo-500/30 font-normal shrink-0">Interativo</span>
+          </div>
+          <div id="zone-tv-status-text" class="text-[10px] sm:text-xs text-slate-300 truncate">Transmita sua tela ou assista!</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <button id="btn-banner-fullscreen" type="button" class="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-[11px] sm:text-xs font-bold border border-slate-600 shadow-md transition pointer-events-auto active:scale-95 flex items-center gap-1">
+          Tela Cheia
+        </button>
+        <button id="btn-banner-screenshare" type="button" class="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[11px] sm:text-xs font-bold shadow-md transition pointer-events-auto active:scale-95 flex items-center gap-1">
+          Transmitir
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HUD INFERIOR / BARRA DE CONTROLES DO JOGADOR (COM SCROLL SUAVE RESPONSIVO EM SMARTPHONES E BOTÃO VERMELHO DE SAIR) -->
+  <div class="fixed bottom-2 sm:bottom-4 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1.5 sm:gap-2 pointer-events-none w-full max-w-full px-2 sm:px-4">
+    
+    <!-- Barra Rápida de Emotes / Reações 3D -->
+    <div class="glass-panel rounded-full px-2.5 py-0.5 sm:py-1 flex items-center gap-1 sm:gap-2 pointer-events-auto shadow-xl border border-slate-700/60 mb-0.5">
+      <span class="text-[10px] sm:text-[11px] text-slate-400 font-semibold px-1 hidden xs:inline">Reagir:</span>
+      <button type="button" data-emote="👋" class="emote-btn hover:scale-125 transition text-sm sm:text-base p-1 active:scale-90">👋</button>
+      <button type="button" data-emote="❤️" class="emote-btn hover:scale-125 transition text-sm sm:text-base p-1 active:scale-90">❤️</button>
+      <button type="button" data-emote="😂" class="emote-btn hover:scale-125 transition text-sm sm:text-base p-1 active:scale-90">😂</button>
+      <button type="button" data-emote="🔥" class="emote-btn hover:scale-125 transition text-sm sm:text-base p-1 active:scale-90">🔥</button>
+      <button type="button" data-emote="🍿" class="emote-btn hover:scale-125 transition text-sm sm:text-base p-1 active:scale-90">🍿</button>
+      <button type="button" data-emote="☕" class="emote-btn hover:scale-125 transition text-sm sm:text-base p-1 active:scale-90">☕</button>
+    </div>
+
+    <!-- Barra Principal -->
+    <div class="glass-panel-accent rounded-2xl sm:rounded-3xl p-1.5 sm:p-2.5 flex items-center gap-1.5 sm:gap-2 pointer-events-auto shadow-2xl border border-slate-700/80 max-w-[96vw] overflow-x-auto no-scrollbar">
+      
+      <!-- Microfone com Feedback Visual -->
+      <button id="btn-toggle-mic" type="button" title="Ativar/Desativar Microfone (Espaço)"
+              class="relative flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl sm:rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition shadow-lg shadow-indigo-600/30 active:scale-95 group">
+        <svg id="icon-mic-on" class="w-4 h-4 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"/>
+        </svg>
+        <svg id="icon-mic-off" class="w-4 h-4 sm:w-6 sm:h-6 hidden text-rose-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/>
+        </svg>
+        <span id="mic-speaking-indicator" class="absolute -top-1 -right-1 w-3 h-3 sm:w-3.5 sm:h-3.5 bg-emerald-400 rounded-full border-2 border-slate-900 hidden animate-ping"></span>
+      </button>
+
+      <!-- WebCam com SVG -->
+      <button id="btn-toggle-webcam" type="button" title="Ligar/Desligar sua Câmera WebCam"
+              class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl sm:rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700 active:scale-95">
+        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+        </svg>
+      </button>
+
+      <!-- Compartilhar Tela -->
+      <button id="btn-toggle-screenshare" type="button" title="Transmitir Tela na Sala"
+              class="flex items-center justify-center gap-1.5 px-2.5 sm:px-4 h-10 sm:h-12 shrink-0 rounded-xl sm:rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-semibold text-xs transition border border-slate-700 active:scale-95">
+        <svg class="w-4 h-4 sm:w-5 sm:h-5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+        </svg>
+        <span id="text-screenshare" class="hidden sm:inline">Transmitir</span>
+      </button>
+
+      <!-- Holograma / Foto -->
+      <button id="btn-toggle-hologram" type="button" title="Foto de Perfil ou Figurinha 3D acima do avatar"
+              class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl sm:rounded-2xl bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-amber-200 transition border border-slate-700 active:scale-95">
+        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+      </button>
+
+      <!-- Tela Cheia / Cinema -->
+      <button id="btn-hud-fullscreen" type="button" title="Abrir Modo Cinema / Tela Cheia da TV"
+              class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl sm:rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700 active:scale-95">
+        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+        </svg>
+      </button>
+
+      <!-- Áudio 3D Espacial vs Global -->
+      <button id="btn-toggle-spatial" type="button" title="Modo de Áudio: Ligado = 3D Espacial por Proximidade | Desligado = Som Global na Sala Toda"
+              class="relative flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl sm:rounded-2xl bg-indigo-600 text-white font-bold transition shadow-lg shadow-indigo-600/30 border border-indigo-400/40 active:scale-95 group">
+        <svg id="icon-spatial-on" class="w-4 h-4 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12 0c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+        </svg>
+        <svg id="icon-spatial-off" class="w-4 h-4 sm:w-6 sm:h-6 hidden text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+        </svg>
+        <span id="spatial-status-dot" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-indigo-400 rounded-full border-2 border-slate-900 shadow"></span>
+      </button>
+
+      <!-- Chat com SVG -->
+      <button id="btn-toggle-chat" type="button" title="Abrir Chat de Texto"
+              class="relative flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl sm:rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700 active:scale-95">
+        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+        </svg>
+        <span id="chat-unread-dot" class="absolute top-2 right-2 w-2 h-2 bg-indigo-500 rounded-full hidden"></span>
+      </button>
+
+      <!-- Bot Companion Demo -->
+      <button id="btn-add-companion-bot" type="button" title="Adicionar Amigo Robô para testar voz/sala"
+              class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl sm:rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 transition border border-amber-500/40 active:scale-95">
+        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+        </svg>
+      </button>
+
+      <!-- 🛑 NOVO: BOTÃO VERMELHO DE SAIR DA CALL -->
+      <button id="btn-hangup-exit" type="button" title="Desconectar e Sair da Sala"
+              class="flex items-center justify-center gap-1 px-3 sm:px-4 h-10 sm:h-12 shrink-0 rounded-xl sm:rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition shadow-lg shadow-rose-600/30 border border-rose-400/40 active:scale-95">
+        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        </svg>
+        <span class="font-semibold">Sair</span>
+      </button>
+    </div>
+
+    <!-- Dica de Movimento -->
+    <div id="tip-movement-container" class="hidden sm:flex text-[11px] text-slate-400 font-medium bg-slate-950/60 px-3 py-1 rounded-full border border-slate-800/80 pointer-events-auto items-center gap-2">
+      <span>🕹️ Use <kbd class="px-1.5 py-0.5 bg-slate-800 rounded text-slate-200 font-mono text-[10px]">W A S D</kbd> ou toque no chão para andar</span>
+    </div>
+  </div>
+
+  <!-- OVERLAY / MODAL DE CINEMA EM TELA CHEIA -->
+  <div id="modal-cinema-fullscreen" class="fixed inset-0 z-50 bg-slate-950/98 backdrop-blur-2xl flex flex-col hidden transition-all duration-300">
+    <div class="px-4 sm:px-5 py-3 flex items-center justify-between border-b border-slate-800/80 glass-panel">
+      <div class="flex items-center gap-2 sm:gap-3">
+        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-base sm:text-lg">
+          📺
+        </div>
+        <div>
+          <div class="font-bold text-xs sm:text-sm text-white flex items-center gap-2">
+            <span>Transmissão da Tela em Tela Cheia</span>
+            <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold border border-emerald-500/30 animate-pulse">AO VIVO</span>
+          </div>
+          <div id="cinema-stream-author" class="text-[11px] sm:text-xs text-slate-400">Transmitindo na tela principal</div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-1.5 sm:gap-2">
+        <button id="btn-cinema-native-fullscreen" type="button" class="px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md transition flex items-center gap-1 active:scale-95">
+          <span id="label-native-fullscreen">⛶ Tela Toda</span>
+        </button>
+
+        <button id="btn-close-cinema" type="button" class="px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs border border-slate-700 transition flex items-center gap-1 active:scale-95">
+          <span>✕ Sair</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="cinema-video-wrapper" class="flex-1 relative flex items-center justify-center p-2 sm:p-4 overflow-hidden bg-black/80">
+      <video id="cinema-fullscreen-video" class="w-full h-full max-h-[85vh] rounded-2xl shadow-2xl border border-slate-800/80 object-contain hidden" autoplay playsinline></video>
+      <canvas id="cinema-canvas-fallback" class="max-w-full max-h-[85vh] rounded-2xl shadow-2xl border border-slate-800/80 object-contain" width="1280" height="720"></canvas>
+    </div>
+  </div>
+
+  <!-- MODAL DE CONFIGURAÇÕES DE ÁUDIO -->
+  <div id="modal-settings" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+    <div class="glass-panel-accent w-full max-w-md rounded-3xl p-6 shadow-2xl border border-indigo-500/40 relative">
+      <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-800">
+        <h3 class="font-bold text-base text-white flex items-center gap-2">
+          <span>⚙️</span> Dispositivos de Áudio
+        </h3>
+        <div class="flex items-center gap-2">
+          <button id="btn-refresh-audio-devices" type="button" class="text-xs text-indigo-400 hover:text-indigo-300 font-semibold px-2 py-1 rounded-lg bg-indigo-950/60 border border-indigo-500/30 transition flex items-center gap-1 active:scale-95" title="Detectar nomes reais dos microfones e saídas">
+            <span>🔄</span> Detectar Nomes
+          </button>
+          <button id="btn-close-settings" type="button" class="text-slate-400 hover:text-white p-1 rounded-lg">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <div class="p-3 bg-slate-900/90 rounded-2xl border border-indigo-500/30 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-white flex items-center gap-1.5">
+              <span>👤</span> Seu Perfil (Salvo no Navegador)
+            </span>
+            <span class="text-[10px] text-emerald-400 font-semibold">💾 Salvo</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <input id="settings-input-username" type="text" maxlength="15" placeholder="Seu apelido..."
+                   class="flex-1 px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-indigo-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1.5">Dispositivo de Microfone (Entrada):</label>
+          <select id="modal-select-audio-input" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-indigo-500">
+            <option value="">Carregando microfones...</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1.5">Dispositivo de Alto-falante / Fone (Saída):</label>
+          <select id="modal-select-audio-output" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-indigo-500">
+            <option value="">Saída Padrão do Navegador</option>
+          </select>
+          <div class="mt-2 flex items-center justify-between">
+            <span class="text-[11px] text-slate-400">Testar saída de áudio:</span>
+            <button id="btn-test-audio-output" type="button" class="px-3 py-1 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 font-semibold transition active:scale-95">
+              🔊 Tocar Som de Teste
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE SELEÇÃO E UPLOAD DE HOLOGRAMA PNG -->
+  <div id="modal-hologram" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+    <div class="glass-panel-accent w-full max-w-md rounded-3xl p-6 shadow-2xl border border-indigo-500/40 relative">
+      <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-800">
+        <h3 class="font-bold text-base text-white flex items-center gap-2">
+          <span>📷</span> Foto de Perfil & Figurinha 3D
+        </h3>
+        <button id="btn-close-hologram" type="button" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          ✕
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-300 mb-2">Enviar seu próprio arquivo PNG:</label>
+          <div class="flex items-center gap-2">
+            <input id="input-hologram-file" type="file" accept="image/png, image/jpeg, image/webp" class="hidden">
+            <button id="btn-trigger-upload-hologram" type="button" class="flex-1 py-2.5 px-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition flex items-center justify-center gap-2 active:scale-95">
+              <span>📁</span> Escolher Foto ou PNG
+            </button>
+            <button id="btn-remove-hologram" type="button" class="py-2.5 px-3 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-semibold rounded-xl transition active:scale-95">
+              Remover
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-300 mb-2">Ou escolha um adesivo rápido:</label>
+          <div class="grid grid-cols-5 gap-2" id="hologram-presets-grid">
+            <button type="button" data-emoji="👑" class="preset-hologram-btn p-2 bg-slate-900 hover:bg-indigo-900/50 rounded-xl text-2xl border border-slate-800 transition hover:scale-110">👑</button>
+            <button type="button" data-emoji="🐱" class="preset-hologram-btn p-2 bg-slate-900 hover:bg-indigo-900/50 rounded-xl text-2xl border border-slate-800 transition hover:scale-110">🐱</button>
+            <button type="button" data-emoji="🕶️" class="preset-hologram-btn p-2 bg-slate-900 hover:bg-indigo-900/50 rounded-xl text-2xl border border-slate-800 transition hover:scale-110">🕶️</button>
+            <button type="button" data-emoji="💎" class="preset-hologram-btn p-2 bg-slate-900 hover:bg-indigo-900/50 rounded-xl text-2xl border border-slate-800 transition hover:scale-110">💎</button>
+            <button type="button" data-emoji="🚀" class="preset-hologram-btn p-2 bg-slate-900 hover:bg-indigo-900/50 rounded-xl text-2xl border border-slate-800 transition hover:scale-110">🚀</button>
+            <button type="button" data-emoji="🛸" class="preset-hologram-btn p-2 bg-slate-900 hover:bg-indigo-900/50 rounded-xl text-2xl border border-slate-800 transition hover:scale-110">🛸</button>
+            <button type="button" data-emoji="⭐" class="preset-hologram-btn p-2 bg-slate-900 hover:bg-indigo-900/50 rounded-xl text-2xl border border-slate-800 transition hover:scale-110">⭐</button>
+            <button type="button" data-emoji="🍕" class="preset-hologram-btn p-2 bg-slate-900 hover:bg-indigo-900/50 rounded-xl text-2xl border border-slate-800 transition hover:scale-110">🍕</button>
+            <button type="button" data-emoji="🔥" class="preset-hologram-btn p-2 bg-slate-900 hover:bg-indigo-900/50 rounded-xl text-2xl border border-slate-800 transition hover:scale-110">🔥</button>
+            <button type="button" data-emoji="👾" class="preset-hologram-btn p-2 bg-slate-900 hover:bg-indigo-900/50 rounded-xl text-2xl border border-slate-800 transition hover:scale-110">👾</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAINEL LATERAL: CHAT DE TEXTO -->
+  <div id="side-chat-panel" class="fixed bottom-24 right-4 z-30 w-80 max-w-[calc(100vw-2rem)] glass-panel-accent rounded-3xl p-4 flex flex-col shadow-2xl transition-all duration-300 transform translate-y-8 opacity-0 pointer-events-none border border-slate-700/80 h-96">
+    <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+      <div class="flex items-center gap-2">
+        <span class="text-base">💬</span>
+        <span class="font-bold text-sm text-white">Chat da Sala</span>
+      </div>
+      <button id="btn-close-chat" type="button" class="text-slate-400 hover:text-white p-1 rounded-lg">
+        ✕
+      </button>
+    </div>
+
+    <div id="chat-messages" class="flex-1 overflow-y-auto py-3 space-y-2 text-xs">
+      <div class="text-center text-[11px] text-slate-500 my-1">✨ Bem-vindo ao chat da Cratera do Jota!</div>
+    </div>
+
+    <form id="form-chat" class="pt-2 border-t border-slate-800 flex gap-2">
+      <input id="input-chat-message" type="text" placeholder="Digite uma mensagem..." maxlength="100"
+             class="flex-1 px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-xs focus:outline-none focus:border-indigo-500">
+      <button type="submit" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition active:scale-95">
+        Enviar
+      </button>
+    </form>
+  </div>
+
+  <!-- PAINEL DE MEMBROS ONLINE & CONTROLES DE VOLUME -->
+  <div id="side-peers-panel" class="fixed top-16 right-4 z-30 w-84 max-w-[calc(100vw-2rem)] glass-panel-accent rounded-3xl p-4 flex flex-col shadow-2xl transition-all duration-300 transform -translate-y-4 opacity-0 pointer-events-none border border-slate-700/80">
+    <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+      <div class="flex items-center gap-2">
+        <span class="font-bold text-xs uppercase tracking-wider text-slate-300">Pessoas Conectadas</span>
+        <span id="panel-admin-role-badge" class="hidden text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">👑 VOCÊ É O HOST</span>
+      </div>
+      <button id="btn-close-peers" type="button" class="text-slate-400 hover:text-white p-1 rounded-lg">
+        ✕
+      </button>
+    </div>
+
+    <div class="text-[11px] text-slate-400 bg-slate-900/60 p-2 rounded-xl mb-2 border border-slate-800/80 flex items-center justify-between">
+      <span>🎚️ Ajuste o volume e veja o ping.</span>
+      <span class="text-[10px] text-emerald-400 font-mono">📶 RTT</span>
+    </div>
+
+    <div id="peers-list-content" class="space-y-2.5 max-h-80 overflow-y-auto text-xs pr-1"></div>
+  </div>
+
+  <!-- MODAL DE AJUDA -->
+  <div id="modal-help" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+    <div class="glass-panel-accent w-full max-w-md rounded-3xl p-6 shadow-2xl border border-slate-700 relative">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-bold text-lg text-white flex items-center gap-2">
+          <span>🎮</span> Guia - Cratera do Jota
+        </h3>
+        <button id="btn-close-help" type="button" class="text-slate-400 hover:text-white p-1.5 rounded-lg">
+          ✕
+        </button>
+      </div>
+
+      <div class="space-y-2.5 text-xs text-slate-300 leading-relaxed max-h-[65vh] overflow-y-auto pr-1">
+        <div class="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800">
+          <b>🏃 Movimentação & Fala:</b> Ande com <kbd class="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-slate-200">WASD</kbd> ou toque no chão. Ao falar, seu avatar sacode e pula sem sair do chão!
+        </div>
+        <div class="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800">
+          <b>💬 Modo Discord 2D:</b> Oculte o 3D a qualquer momento para uma tela clássica de videochamada com webcams.
+        </div>
+        <div class="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800">
+          <b>📷 Foto e Holograma:</b> Escolha sua foto ou stickers que ficam salvos no navegador e flutuam sobre o personagem.
+        </div>
+        <div class="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800">
+          <b>📺 Telão 16:9 & Áudio:</b> Compartilhe sua tela com áudio integrado sem cortes e assista em tela cheia pelo botão <b>⛶</b>.
+        </div>
+        <div class="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800">
+          <b>🚪 Porta de Saída / Botão Sair:</b> Caminhe até a porta de saída ou clique no botão vermelho <b>Sair</b> para retornar ao saguão.
+        </div>
+      </div>
+
+      <div class="mt-4 text-center">
+        <button id="btn-ack-help" type="button" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs transition">
+          Entendi, vamos lá!
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPT COMPLETO E FUNCIONAL -->
+  <script>
+    (function () {
+      'use strict';
+
+      // Polyfill de compatibilidade WebRTC MediaDevices para navegadores móveis
+      (function initMediaPolyfill() {
+        if (typeof navigator === 'undefined') return;
+        if (!navigator.mediaDevices) {
+          navigator.mediaDevices = {};
+        }
+        if (!navigator.mediaDevices.getUserMedia) {
+          const legacy = navigator.getUserMedia ||
+                         navigator.webkitGetUserMedia ||
+                         navigator.mozGetUserMedia ||
+                         navigator.msGetUserMedia;
+          if (legacy) {
+            navigator.mediaDevices.getUserMedia = function (constraints) {
+              return new Promise((resolve, reject) => {
+                legacy.call(navigator, constraints, resolve, reject);
+              });
+            };
+          }
+        }
+      })();
+
+      function createSilentAudioStream() {
+        try {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContextClass) return null;
+          const ctx = new AudioContextClass();
+          const osc = ctx.createOscillator();
+          const dst = ctx.createMediaStreamDestination();
+          osc.connect(dst);
+          osc.start();
+          const track = dst.stream.getAudioTracks()[0];
+          track.enabled = false;
+          return new MediaStream([track]);
+        } catch (e) {
+          return null;
+        }
+      }
+
+      const PEER_CONFIG = {
+        debug: 0,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' },
+            { urls: 'stun:stun.cloudflare.com:3478' }
+          ]
+        }
+      };
+
+      const APP = {
+        roomId: '',
+        cleanRoomKey: '',
+        mySlot: 1,
+        isHost: false,
+        myPeerId: '',
+        peer: null,
+        viewMode: '3d',
+        myUser: {
+          id: 'user_' + Math.random().toString(36).substring(2, 9),
+          name: 'Viajante',
+          color: '#6366f1',
+          x: 0,
+          z: 2,
+          isMuted: false,
+          isSpeaking: false,
+          isSharingScreen: false,
+          isWebcamActive: false,
+          hologramUrl: '',
+          zone: 'Lounge'
+        },
+        peers: new Map(),
+        localAudioStream: null,
+        localScreenStream: null,
+        localWebcamStream: null,
+        isWebcamActive: false,
+        selectedAudioInputId: '',
+        selectedAudioOutputId: '',
+        audioContext: null,
+        micAnalyser: null,
+        isMicMuted: false,
+        useSpatialAudio: true,
+        isChatOpen: false,
+        isPeersOpen: false,
+        isCinemaOpen: false,
+        isExiting: false,
+        screenTexture: null,
+        screenVideoElem: null,
+        defaultTVCanvas: null,
+        defaultTVCtx: null,
+        tvScreenMesh: null,
+        companionBot: null,
+        activeZone: 'Lounge',
+        screenSharingPeerName: '',
+        radarRoomsState: new Map() // code -> { online: boolean, count: number }
+      };
+
+      const ZONES = [
+        { id: 'Lounge', name: 'Lounge Lateral', icon: '🛋️', minX: 8, maxX: 18, minZ: -4, maxZ: 6 },
+        { id: 'TV_Room', name: 'Sala de Cinema & Telão TV', icon: '📺', minX: -8.5, maxX: 8.5, minZ: -5, maxZ: 6.5 },
+        { id: 'Cafe_Corner', name: 'Cantinho do Café', icon: '☕', minX: -16, maxX: -6, minZ: -4, maxZ: 6 },
+        { id: 'Stage', name: 'Palco Principal', icon: '🎤', minX: -6.5, maxX: 6.5, minZ: 8.8, maxZ: 16.5 },
+        { id: 'Exit_Zone', name: 'Porta de Saída', icon: '🚪', minX: -19, maxX: -14.5, minZ: 15.5, maxZ: 18.5 },
+        { id: 'DJ_Booth', name: 'Cabine do DJ', icon: '🎧', minX: 7, maxX: 16, minZ: 9.5, maxZ: 16.5 },
+        { id: 'Game_Circle', name: 'Fliperama Retrô', icon: '🕹️', minX: -19, maxX: -14.5, minZ: 4.5, maxZ: 11 }
+      ];
+
+      function showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+
+        const toast = document.createElement('div');
+        const bgColors = {
+          info: 'bg-slate-900 border-indigo-500/50 text-indigo-200',
+          success: 'bg-slate-900 border-emerald-500/50 text-emerald-200',
+          warning: 'bg-slate-900 border-amber-500/50 text-amber-200',
+          error: 'bg-slate-900 border-rose-500/50 text-rose-200'
+        };
+
+        toast.className = `px-4 py-2.5 rounded-xl border shadow-xl text-xs font-semibold flex items-center gap-2 transform transition-all duration-300 translate-y-[-10px] opacity-0 ${bgColors[type] || bgColors.info}`;
+        toast.innerHTML = `<span>${type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ'}</span><span>${message}</span>`;
+        
+        container.appendChild(toast);
+        requestAnimationFrame(() => {
+          toast.classList.remove('translate-y-[-10px]', 'opacity-0');
+        });
+
+        setTimeout(() => {
+          toast.classList.add('opacity-0', 'translate-y-[-10px]');
+          setTimeout(() => {
+            if (toast.parentNode) toast.parentNode.removeChild(toast);
+          }, 300);
+        }, 3500);
+      }
+
+      function cleanKey(roomId) {
+        return (roomId || 'sala1').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+      }
+
+      // --- RADAR DE 20 SALAS E SALA UNIVERSAL ---
+      function initRadarRoomsUI() {
+        const grid = document.getElementById('radar-rooms-grid');
+        if (!grid) return;
+        grid.innerHTML = '';
+
+        for (let i = 1; i <= 20; i++) {
+          const roomCode = `sala-${i}`;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.id = `radar-btn-${roomCode}`;
+          btn.className = 'p-1.5 rounded-xl bg-slate-950/80 hover:bg-indigo-950 border border-slate-800 hover:border-indigo-500 text-slate-300 text-[10px] font-mono font-bold flex flex-col items-center justify-center gap-0.5 transition active:scale-95';
+          btn.innerHTML = `<span>${i}</span><span id="radar-dot-${roomCode}" class="w-1.5 h-1.5 rounded-full bg-slate-600"></span>`;
+          btn.title = `Entrar na ${roomCode}`;
+          btn.addEventListener('click', () => {
+            const username = document.getElementById('input-username').value.trim() || 'Viajante';
+            APP.myUser.name = username;
+            closeLobbyAndStart(roomCode, true);
+          });
+          grid.appendChild(btn);
+        }
+      }
+
+      function scanPublicRoomsRadar() {
+        const ind = document.getElementById('radar-status-indicator');
+        if (ind) ind.textContent = '• 20 Salas Prontas';
+      }
+
+      function updateRadarTileStatus(roomCode, isOnline) {
+        APP.radarRoomsState.set(roomCode, { online: isOnline });
+        const btn = document.getElementById(`radar-btn-${roomCode}`);
+        const dot = document.getElementById(`radar-dot-${roomCode}`);
+        if (!btn || !dot) return;
+
+        if (isOnline) {
+          btn.classList.remove('border-slate-800', 'text-slate-300');
+          btn.classList.add('border-emerald-500/60', 'bg-emerald-950/40', 'text-emerald-300');
+          dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse';
+        } else {
+          btn.classList.remove('border-emerald-500/60', 'bg-emerald-950/40', 'text-emerald-300');
+          btn.classList.add('border-slate-800', 'text-slate-300');
+          dot.className = 'w-1.5 h-1.5 rounded-full bg-slate-600';
+        }
+      }
+
+      function checkUniversalRoomStatus() {
+        const hostPeerId = `cratera_crateradojota_s1`;
+        let probe = null;
+        try {
+          probe = new Peer(PEER_CONFIG);
+          probe.on('open', () => {
+            const conn = probe.connect(hostPeerId, { serialization: 'json' });
+            const timer = setTimeout(() => {
+              updateUniversalStatusUI(false);
+              try { if (probe && !probe.destroyed) probe.destroy(); } catch (e) {}
+            }, 1400);
+
+            conn.on('open', () => {
+              clearTimeout(timer);
+              updateUniversalStatusUI(true);
+              try { if (probe && !probe.destroyed) probe.destroy(); } catch (e) {}
+            });
+            conn.on('error', () => {
+              clearTimeout(timer);
+              updateUniversalStatusUI(false);
+              try { if (probe && !probe.destroyed) probe.destroy(); } catch (e) {}
+            });
+          });
+          probe.on('error', () => {
+            updateUniversalStatusUI(false);
+            try { if (probe && !probe.destroyed) probe.destroy(); } catch (e) {}
+          });
+        } catch (e) {
+          updateUniversalStatusUI(false);
+        }
+      }
+
+      function updateUniversalStatusUI(isOnline) {
+        const text = document.getElementById('status-universal-room');
+        const badge = document.getElementById('badge-universal-count');
+        if (text) text.textContent = isOnline ? '🟢 Pessoas online agora!' : 'Ponto de encontro oficial central';
+        if (badge) {
+          if (isOnline) {
+            badge.className = 'text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/30 text-emerald-200 border border-emerald-400 font-bold animate-pulse';
+            badge.textContent = 'AO VIVO 🟢';
+          } else {
+            badge.className = 'text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40';
+            badge.textContent = '1º vira Host 👑';
+          }
+        }
+      }
+
+      function performQuickJoin() {
+        // Encontra a primeira sala online no radar
+        for (let i = 1; i <= 20; i++) {
+          const code = `sala-${i}`;
+          const state = APP.radarRoomsState.get(code);
+          if (state && state.online) {
+            showToast(`Entrando na sala ativa ${code}!`, 'success');
+            const username = document.getElementById('input-username').value.trim() || 'Viajante';
+            APP.myUser.name = username;
+            closeLobbyAndStart(code, true);
+            return;
+          }
+        }
+        // Se todas estiverem livres, entra na sala-1
+        showToast('Nenhuma sala com pessoas no momento. Criando sala-1!', 'info');
+        const username = document.getElementById('input-username').value.trim() || 'Viajante';
+        APP.myUser.name = username;
+        closeLobbyAndStart('sala-1', true);
+      }
+
+      function saveRoomToCache(roomId) {
+        if (!roomId) return;
+        try {
+          let list = JSON.parse(localStorage.getItem('vr3d_recent_rooms') || '[]');
+          list = list.filter(r => r.code.toLowerCase() !== roomId.toLowerCase());
+          list.unshift({ code: roomId, timestamp: Date.now() });
+          if (list.length > 6) list = list.slice(0, 6);
+          localStorage.setItem('vr3d_recent_rooms', JSON.stringify(list));
+        } catch (e) {}
+      }
+
+      function renderCachedRoomsUI() {
+        const container = document.getElementById('cached-rooms-list');
+        if (!container) return;
+
+        let list = [];
+        try {
+          list = JSON.parse(localStorage.getItem('vr3d_recent_rooms') || '[]');
+        } catch (e) {}
+
+        if (!list || list.length === 0) {
+          container.innerHTML = '<span class="text-[11px] text-slate-500 italic py-1">Nenhuma sala salva ainda no histórico.</span>';
+          return;
+        }
+
+        container.innerHTML = '';
+        list.forEach(item => {
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'px-2.5 py-1 rounded-lg bg-indigo-950/60 hover:bg-indigo-600/40 border border-indigo-500/30 text-indigo-200 text-xs font-mono font-medium flex items-center gap-1.5 transition active:scale-95';
+          chip.innerHTML = `<span>🚪</span><span>${item.code}</span>`;
+          chip.title = 'Entrar diretamente nesta sala salva';
+          chip.addEventListener('click', () => {
+            const username = document.getElementById('input-username').value.trim() || 'Viajante';
+            APP.myUser.name = username;
+            closeLobbyAndStart(item.code, true);
+          });
+          container.appendChild(chip);
+        });
+      }
+
+      function updateNetworkStatus(online = false, text = '') {
+        const ping = document.getElementById('hud-connection-ping');
+        const dot = document.getElementById('hud-connection-dot');
+        const statusText = document.getElementById('hud-status-text');
+
+        if (online) {
+          if (ping) ping.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping';
+          if (dot) dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 -ml-4.5';
+          if (statusText) {
+            statusText.textContent = text || `Conectado (${APP.peers.size + 1})`;
+            statusText.className = 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+          }
+        } else {
+          if (ping) ping.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping';
+          if (dot) dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 -ml-4.5';
+          if (statusText) {
+            statusText.textContent = text || 'Procurando colegas...';
+            statusText.className = 'text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30';
+          }
+        }
+      }
+
+      function loadSavedUserProfile() {
+        try {
+          const savedNick = localStorage.getItem('vr3d_nickname');
+          const savedPhoto = localStorage.getItem('vr3d_avatar_photo');
+          const savedColor = localStorage.getItem('vr3d_avatar_color');
+
+          const inputUser = document.getElementById('input-username');
+          if (savedNick && inputUser) {
+            inputUser.value = savedNick;
+            APP.myUser.name = savedNick;
+          }
+
+          if (savedPhoto) {
+            APP.myUser.hologramUrl = savedPhoto;
+            updateLobbyAvatarPreview(savedPhoto);
+          } else if (inputUser) {
+            updateLobbyAvatarPreview('', inputUser.value);
+          }
+
+          if (savedColor) {
+            APP.myUser.color = savedColor;
+            const colorBtns = document.querySelectorAll('.avatar-color-btn');
+            colorBtns.forEach(btn => {
+              if (btn.getAttribute('data-color') === savedColor) {
+                colorBtns.forEach(b => b.classList.remove('border-white', 'scale-110'));
+                btn.classList.add('border-white', 'scale-110');
+              }
+            });
+          }
+        } catch (e) {}
+      }
+
+      function saveUserProfile() {
+        try {
+          if (APP.myUser.name) localStorage.setItem('vr3d_nickname', APP.myUser.name);
+          if (APP.myUser.hologramUrl) {
+            localStorage.setItem('vr3d_avatar_photo', APP.myUser.hologramUrl);
+          } else {
+            localStorage.removeItem('vr3d_avatar_photo');
+          }
+          if (APP.myUser.color) localStorage.setItem('vr3d_avatar_color', APP.myUser.color);
+        } catch (e) {}
+      }
+
+      function updateLobbyAvatarPreview(url, fallbackName = '') {
+        const preview = document.getElementById('lobby-avatar-preview');
+        const img = document.getElementById('lobby-avatar-img');
+        const letter = document.getElementById('lobby-avatar-letter');
+        const removeBtn = document.getElementById('btn-lobby-remove-photo');
+        if (!preview) return;
+
+        const name = fallbackName || APP.myUser.name || 'V';
+        preview.style.backgroundColor = APP.myUser.color || '#6366f1';
+
+        if (url) {
+          if (img) {
+            img.src = url;
+            img.classList.remove('hidden');
+          }
+          if (letter) letter.classList.add('hidden');
+          if (removeBtn) removeBtn.classList.remove('hidden');
+        } else {
+          if (img) {
+            img.src = '';
+            img.classList.add('hidden');
+          }
+          if (letter) {
+            letter.textContent = name.substring(0, 1).toUpperCase();
+            letter.classList.remove('hidden');
+          }
+          if (removeBtn) removeBtn.classList.add('hidden');
+        }
+      }
+
+      async function populateAudioDevices(requestIfEmpty = false) {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+
+        try {
+          if (requestIfEmpty && !APP.localAudioStream && navigator.mediaDevices.getUserMedia) {
+            try {
+              await setupLocalMicrophone();
+            } catch (permErr) {}
+          }
+
+          let devices = await navigator.mediaDevices.enumerateDevices();
+          let inputs = devices.filter(d => d.kind === 'audioinput');
+          let outputs = devices.filter(d => d.kind === 'audiooutput');
+
+          const lobbyIn = document.getElementById('select-audio-input');
+          const lobbyOut = document.getElementById('select-audio-output');
+          const modalIn = document.getElementById('modal-select-audio-input');
+          const modalOut = document.getElementById('modal-select-audio-output');
+
+          function formatDeviceLabel(label, fallbackType, idx) {
+            if (!label || label.trim() === '') return `${fallbackType} ${idx + 1}`;
+            return label.replace(/^default\s*-\s*/i, '').replace(/^communications\s*-\s*/i, '').trim();
+          }
+
+          function fillSelect(selectEl, deviceList, defaultLabel, fallbackType, selectedId = '') {
+            if (!selectEl) return;
+            const currentVal = selectedId || selectEl.value;
+            selectEl.innerHTML = '';
+
+            const defOpt = document.createElement('option');
+            defOpt.value = '';
+            defOpt.textContent = defaultLabel;
+            selectEl.appendChild(defOpt);
+
+            deviceList.forEach((d, idx) => {
+              const opt = document.createElement('option');
+              opt.value = d.deviceId;
+              opt.textContent = formatDeviceLabel(d.label, fallbackType, idx);
+              selectEl.appendChild(opt);
+            });
+
+            if (currentVal && Array.from(selectEl.options).some(o => o.value === currentVal)) {
+              selectEl.value = currentVal;
+            }
+          }
+
+          fillSelect(lobbyIn, inputs, 'Microfone Padrão do Sistema', 'Microfone', APP.selectedAudioInputId);
+          fillSelect(modalIn, inputs, 'Microfone Padrão do Sistema', 'Microfone', APP.selectedAudioInputId);
+          fillSelect(lobbyOut, outputs, 'Alto-falante / Fone Padrão', 'Saída', APP.selectedAudioOutputId);
+          fillSelect(modalOut, outputs, 'Alto-falante / Fone Padrão', 'Saída', APP.selectedAudioOutputId);
+
+        } catch (e) {
+          console.warn('Erro ao enumerar dispositivos:', e);
+        }
+      }
+
+      function testSoundChime() {
+        try {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContextClass) return;
+          const ctx = new AudioContextClass();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+          osc.frequency.setValueAtTime(880, ctx.currentTime + 0.12);
+          gain.gain.setValueAtTime(0.2, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+          
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.52);
+          showToast('Tocando som de teste...', 'info');
+        } catch (e) {}
+      }
+
+      // --- THREE.JS ENGINE ---
+      let scene, camera, renderer;
+      let myAvatarMesh = null;
+      let cameraZoomLevel = 16;
+      const keyState = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false };
+      const targetPos = new THREE.Vector3(0, 0, 2);
+      const currentPos = new THREE.Vector3(0, 0, 2);
+      const raycaster = new THREE.Raycaster();
+      const mouse = new THREE.Vector2();
+      const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      let animatedClock = new THREE.Clock();
+
+      function initThree() {
+        const container = document.getElementById('webgl-container');
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x090d16);
+        scene.fog = new THREE.FogExp2(0x090d16, 0.02);
+
+        const aspect = window.innerWidth / window.innerHeight;
+        cameraZoomLevel = 16;
+        camera = new THREE.OrthographicCamera(-cameraZoomLevel * aspect, cameraZoomLevel * aspect, cameraZoomLevel, -cameraZoomLevel, 1, 1000);
+        camera.position.set(24, 24, 24);
+        camera.lookAt(0, 0, 0);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xfff5e6, 0.9);
+        dirLight.position.set(20, 40, 20);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+
+        buildVirtualEnvironment();
+        createLocalAvatar();
+
+        window.addEventListener('resize', onWindowResize);
+        
+        container.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          const zoomDelta = e.deltaY * 0.015;
+          setCameraZoom(cameraZoomLevel + zoomDelta);
+        }, { passive: false });
+
+        window.addEventListener('keydown', (e) => {
+          if (['w', 'a', 's', 'd'].includes(e.key.toLowerCase()) || e.key.startsWith('Arrow')) {
+            const inputEl = document.activeElement;
+            if (inputEl && (inputEl.tagName === 'INPUT' || inputEl.tagName === 'TEXTAREA' || inputEl.tagName === 'SELECT')) return;
+            keyState[e.key.toLowerCase()] = true;
+            if (e.key.startsWith('Arrow')) keyState[e.key] = true;
+          }
+          if (e.code === 'Space') {
+            const inputEl = document.activeElement;
+            if (!inputEl || (inputEl.tagName !== 'INPUT' && inputEl.tagName !== 'TEXTAREA' && inputEl.tagName !== 'SELECT')) {
+              e.preventDefault();
+              toggleMic();
+            }
+          }
+          if (e.key === 'Escape' && APP.isCinemaOpen) closeCinemaFullscreen();
+        });
+
+        window.addEventListener('keyup', (e) => {
+          keyState[e.key.toLowerCase()] = false;
+          if (e.key.startsWith('Arrow')) keyState[e.key] = false;
+        });
+
+        container.addEventListener('pointerdown', onPointerClickToMove);
+        renderLoop();
+      }
+
+      function setCameraZoom(newZoom) {
+        cameraZoomLevel = THREE.MathUtils.clamp(newZoom, 7, 26);
+        if (!camera) return;
+        const aspect = window.innerWidth / window.innerHeight;
+        camera.left = -cameraZoomLevel * aspect;
+        camera.right = cameraZoomLevel * aspect;
+        camera.top = cameraZoomLevel;
+        camera.bottom = -cameraZoomLevel;
+        camera.updateProjectionMatrix();
+
+        const label = document.getElementById('btn-zoom-reset');
+        if (label) {
+          const pct = Math.round((16 / cameraZoomLevel) * 100);
+          label.textContent = `${pct}%`;
+        }
+      }
+
+      function onWindowResize() {
+        if (!camera || !renderer) return;
+        const aspect = window.innerWidth / window.innerHeight;
+        camera.left = -cameraZoomLevel * aspect;
+        camera.right = cameraZoomLevel * aspect;
+        camera.top = cameraZoomLevel;
+        camera.bottom = -cameraZoomLevel;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      function onPointerClickToMove(event) {
+        if (APP.viewMode === '2d') return;
+        if (event.clientY < 70 || event.clientY > window.innerHeight - 110) return;
+        
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        
+        const intersectionPoint = new THREE.Vector3();
+        raycaster.ray.intersectPlane(floorPlane, intersectionPoint);
+        
+        if (intersectionPoint) {
+          targetPos.x = THREE.MathUtils.clamp(intersectionPoint.x, -18, 18);
+          targetPos.z = THREE.MathUtils.clamp(intersectionPoint.z, -6, 18);
+          createClickMarker(targetPos.x, targetPos.z);
+        }
+      }
+
+      function createClickMarker(x, z) {
+        const ringGeo = new THREE.RingGeometry(0.3, 0.45, 24);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0x818cf8, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(x, 0.05, z);
+        scene.add(ring);
+
+        let scale = 1, opacity = 0.8;
+        const fadeInterval = setInterval(() => {
+          scale += 0.08;
+          opacity -= 0.08;
+          ring.scale.set(scale, scale, 1);
+          ringMat.opacity = Math.max(0, opacity);
+          if (opacity <= 0) {
+            clearInterval(fadeInterval);
+            scene.remove(ring);
+            ringGeo.dispose();
+            ringMat.dispose();
+          }
+        }, 30);
+      }
+
+      function buildVirtualEnvironment() {
+        const floorGeo = new THREE.PlaneGeometry(42, 28);
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.set(0, 0, 5);
+        floor.receiveShadow = true;
+        scene.add(floor);
+
+        const gridHelper = new THREE.GridHelper(40, 40, 0x334155, 0x1e293b);
+        gridHelper.position.set(0, 0.02, 5);
+        scene.add(gridHelper);
+
+        // Paredes
+        createWall(0, 3, -8, 42.8, 6, 0.8, 0x0f172a);
+        createWall(-21, 3, 5.6, 0.8, 6, 26.4, 0x0f172a);
+        createWall(21, 3, 5.6, 0.8, 6, 26.4, 0x0f172a);
+
+        // 1. TELÃO DE TRANSMISSÃO 16:9 CENTRALIZADO
+        createCinemaTV(0, 3.2, -7.6);
+
+        // Plateia e Sofás de Cinema
+        const cinemaRugGeo = new THREE.BoxGeometry(13.5, 0.05, 9.5);
+        const cinemaRugMat = new THREE.MeshStandardMaterial({ color: 0x1e1b4b, roughness: 0.9 });
+        const cinemaRug = new THREE.Mesh(cinemaRugGeo, cinemaRugMat);
+        cinemaRug.position.set(0, 0.04, 1.0);
+        cinemaRug.receiveShadow = true;
+        scene.add(cinemaRug);
+
+        createSofa(0, 0, 4.0, 6.2, 0x312e81, 0);
+        createSofa(-4.8, 0, 1.8, 3.8, 0x312e81, Math.PI / 5);
+        createSofa(4.8, 0, 1.8, 3.8, 0x312e81, -Math.PI / 5);
+        createCoffeeTable(0, 0, 1.8);
+
+        createPuff(-2.2, 0, -0.4, 0x4f46e5);
+        createPuff(0, 0, -0.6, 0x6366f1);
+        createPuff(2.2, 0, -0.4, 0x4f46e5);
+
+        createPlantPot(-6.2, 0, -6.5);
+        createPlantPot(6.2, 0, -6.5);
+
+        // 2. LOUNGE LATERAL VIP (DIREITA)
+        const loungeRugGeo = new THREE.CylinderGeometry(4.6, 4.6, 0.05, 32);
+        const loungeRugMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.9 });
+        const loungeRug = new THREE.Mesh(loungeRugGeo, loungeRugMat);
+        loungeRug.position.set(13.2, 0.03, 1.2);
+        loungeRug.receiveShadow = true;
+        scene.add(loungeRug);
+
+        createSofa(13.2, 0, 3.6, 4.5, 0x475569, 0);
+        createCoffeeTable(13.2, 0, 1.2);
+        createPlantPot(16.5, 0, -3.5);
+
+        // 3. CANTINHO DO CAFÉ
+        const barCounterGeo = new THREE.BoxGeometry(8, 1.8, 1.8);
+        const barCounterMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.5 });
+        const barCounter = new THREE.Mesh(barCounterGeo, barCounterMat);
+        barCounter.position.set(-11, 0.9, -4.5);
+        barCounter.castShadow = true;
+        barCounter.receiveShadow = true;
+        scene.add(barCounter);
+
+        const coffeeMakerGeo = new THREE.BoxGeometry(1.2, 1, 1);
+        const coffeeMakerMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8, roughness: 0.2 });
+        const coffeeMaker = new THREE.Mesh(coffeeMakerGeo, coffeeMakerMat);
+        coffeeMaker.position.set(-11, 2.3, -4.5);
+        coffeeMaker.castShadow = true;
+        scene.add(coffeeMaker);
+
+        createBarStool(-13, 0, -2.5);
+        createBarStool(-11, 0, -2.5);
+        createBarStool(-9, 0, -2.5);
+
+        // 4. PALCO PRINCIPAL COMPLETO
+        createStage(0, 0, 12.8);
+
+        // 5. PORTA DE SAÍDA INTERATIVA
+        createExitDoor(-17, 0, 17);
+
+        // 6. FLIPERAMAS RETRÔ
+        createArcadeMachine(-18.5, 0, 6.2, 0x00f3ff, Math.PI / 2);
+        createArcadeMachine(-18.5, 0, 9.0, 0xf43f5e, Math.PI / 2);
+
+        // 7. CABINE DO DJ
+        createDJBooth(11.5, 0, 12.5);
+
+        // 8. FAIXAS DE NEON NO PISO
+        createFloorNeonStrip(-17, 0.03, 14.2, 2.5, 0.15, 0x10b981);
+        createFloorNeonStrip(0, 0.03, 8.2, 9.5, 0.15, 0x8b5cf6);
+        createFloorNeonStrip(5.5, 0.03, 1, 0.15, 11, 0x6366f1);
+
+        // 9. LETREIRO DE LED NEON CENTRALIZADO NA PAREDE LATERAL ESQUERDA
+        createLedNeonSign(-20.55, 3.6, 5.6, Math.PI / 2);
+
+        // 10. LABELS FLUTUANTES DAS ZONAS
+        createZoneLabel(0, 6.4, -6.0, '📺 Telão de Cinema & TV');
+        createZoneLabel(13.2, 3.2, -4.5, '🛋️ Lounge Lateral');
+        createZoneLabel(-11, 4.5, -6, '☕ Cantinho do Café');
+        createZoneLabel(0, 6.5, 12, '🎤 Palco Principal');
+        createZoneLabel(-17, 5.6, 17, '🚪 Porta de Saída');
+        createZoneLabel(11.5, 4.8, 12.5, '🎧 Cabine do DJ');
+        createZoneLabel(-18.5, 4.4, 7.6, '🕹️ Fliperama Retrô');
+      }
+
+      function createStage(x, y, z) {
+        const stageGroup = new THREE.Group();
+        const deck = new THREE.Mesh(new THREE.BoxGeometry(12.4, 0.65, 7.2), new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.5 }));
+        deck.position.set(0, 0.325, 0);
+        deck.receiveShadow = true;
+        stageGroup.add(deck);
+
+        const edge = new THREE.Mesh(new THREE.BoxGeometry(12.55, 0.08, 7.35), new THREE.MeshBasicMaterial({ color: 0x8b5cf6 }));
+        edge.position.set(0, 0.65, 0);
+        stageGroup.add(edge);
+
+        const step1 = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.22, 1.0), new THREE.MeshStandardMaterial({ color: 0x27272a }));
+        step1.position.set(0, 0.11, -4.1);
+        stageGroup.add(step1);
+        const step2 = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.22, 0.8), new THREE.MeshStandardMaterial({ color: 0x27272a }));
+        step2.position.set(0, 0.33, -3.4);
+        stageGroup.add(step2);
+
+        const trussMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.85, roughness: 0.25 });
+        const colLeft = new THREE.Mesh(new THREE.BoxGeometry(0.35, 4.6, 0.35), trussMat);
+        colLeft.position.set(-5.8, 2.5, 3.2);
+        stageGroup.add(colLeft);
+        const colRight = new THREE.Mesh(new THREE.BoxGeometry(0.35, 4.6, 0.35), trussMat);
+        colRight.position.set(5.8, 2.5, 3.2);
+        stageGroup.add(colRight);
+        const crossBeam = new THREE.Mesh(new THREE.BoxGeometry(12.0, 0.35, 0.35), trussMat);
+        crossBeam.position.set(0, 4.8, 3.2);
+        stageGroup.add(crossBeam);
+
+        const colors = [0x00f3ff, 0xec4899, 0xf59e0b, 0x8b5cf6];
+        for (let i = 0; i < 4; i++) {
+          const posX = -4.5 + i * 3.0;
+          const par = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.25, 0.5, 12), new THREE.MeshStandardMaterial({ color: 0x0f172a }));
+          par.position.set(posX, 4.5, 3.2);
+          par.rotation.x = Math.PI / 4;
+          stageGroup.add(par);
+          const lens = new THREE.Mesh(new THREE.CircleGeometry(0.2, 12), new THREE.MeshBasicMaterial({ color: colors[i] }));
+          lens.position.set(posX, 4.35, 3.05);
+          lens.rotation.x = Math.PI / 4;
+          stageGroup.add(lens);
+        }
+
+        const micBase = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.05, 16), trussMat);
+        micBase.position.set(0, 0.68, -0.6);
+        stageGroup.add(micBase);
+        const micPole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.4, 8), trussMat);
+        micPole.position.set(0, 1.38, -0.6);
+        stageGroup.add(micPole);
+        const micHead = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 12), new THREE.MeshStandardMaterial({ color: 0xd4d4d8, metalness: 0.9 }));
+        micHead.position.set(0, 2.08, -0.6);
+        stageGroup.add(micHead);
+
+        for (let side of [-6.8, 6.8]) {
+          const stack = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.8, 1.3), new THREE.MeshStandardMaterial({ color: 0x09090b, roughness: 0.7 }));
+          stack.position.set(side, 1.4, 0);
+          stageGroup.add(stack);
+        }
+
+        stageGroup.position.set(x, y, z);
+        scene.add(stageGroup);
+      }
+
+      function createFloorNeonStrip(x, y, z, w, h, colorHex) {
+        const strip = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide }));
+        strip.rotation.x = -Math.PI / 2;
+        strip.position.set(x, y, z);
+        scene.add(strip);
+      }
+
+      function createBarStool(x, y, z) {
+        const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.2, 16), new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.4 }));
+        seat.position.set(x, 1.2, z);
+        scene.add(seat);
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.2, 8), new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.8 }));
+        leg.position.set(x, 0.6, z);
+        scene.add(leg);
+      }
+
+      function createPuff(x, y, z, color) {
+        const puff = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.5, 16), new THREE.MeshStandardMaterial({ color: color, roughness: 0.7 }));
+        puff.position.set(x, 0.25, z);
+        scene.add(puff);
+      }
+
+      function createPlantPot(x, y, z) {
+        const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.4, 1.0, 12), new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.6 }));
+        pot.position.set(x, 0.5, z);
+        scene.add(pot);
+        const leaves = new THREE.Mesh(new THREE.DodecahedronGeometry(0.8, 1), new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.5 }));
+        leaves.position.set(x, 1.4, z);
+        scene.add(leaves);
+      }
+
+      function createExitDoor(x, y, z) {
+        const doorGroup = new THREE.Group();
+        const frame = new THREE.Mesh(new THREE.BoxGeometry(3.2, 4.8, 0.45), new THREE.MeshStandardMaterial({ color: 0x09090b }));
+        frame.position.set(0, 2.4, 0);
+        doorGroup.add(frame);
+
+        const portal = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 4.2), new THREE.MeshBasicMaterial({ color: 0x059669, side: THREE.DoubleSide }));
+        portal.position.set(0, 2.2, 0.05);
+        doorGroup.add(portal);
+
+        const light = new THREE.PointLight(0x10b981, 2.4, 9);
+        light.position.set(0, 3.2, 0.8);
+        doorGroup.add(light);
+
+        doorGroup.position.set(x, y, z);
+        scene.add(doorGroup);
+      }
+
+      function createArcadeMachine(x, y, z, screenColorHex, rotY = 0) {
+        const group = new THREE.Group();
+        const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.4, 1.1), new THREE.MeshStandardMaterial({ color: 0x09090b }));
+        body.position.y = 1.2;
+        group.add(body);
+
+        const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.7), new THREE.MeshBasicMaterial({ color: screenColorHex }));
+        screen.position.set(0, 1.5, 0.56);
+        group.add(screen);
+
+        group.position.set(x, y, z);
+        group.rotation.y = rotY;
+        scene.add(group);
+      }
+
+      function createDJBooth(x, y, z) {
+        const group = new THREE.Group();
+        const table = new THREE.Mesh(new THREE.BoxGeometry(3.6, 1.4, 1.6), new THREE.MeshStandardMaterial({ color: 0x09090b }));
+        table.position.y = 0.7;
+        group.add(table);
+
+        const ledPanel = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.2), new THREE.MeshBasicMaterial({ color: 0x6366f1 }));
+        ledPanel.position.set(0, 0.7, -0.81);
+        ledPanel.rotation.y = Math.PI;
+        group.add(ledPanel);
+
+        for (let px of [-1.0, 1.0]) {
+          const platter = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.05, 24), new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8 }));
+          platter.position.set(px, 1.43, 0);
+          group.add(platter);
+        }
+
+        const laptop = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.02, 0.45), new THREE.MeshStandardMaterial({ color: 0xd4d4d8, metalness: 0.9 }));
+        laptop.position.set(0, 1.6, 0.35);
+        group.add(laptop);
+
+        group.position.set(x, y, z);
+        scene.add(group);
+      }
+
+      function createWall(x, y, z, w, h, d, color) {
+        const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color: color, roughness: 0.8 }));
+        wall.position.set(x, y, z);
+        wall.receiveShadow = true;
+        scene.add(wall);
+      }
+
+      function createSofa(x, y, z, width, colorHex, rotY = 0) {
+        const group = new THREE.Group();
+        const seat = new THREE.Mesh(new THREE.BoxGeometry(width, 0.6, 1.8), new THREE.MeshStandardMaterial({ color: colorHex }));
+        seat.position.y = 0.5;
+        group.add(seat);
+
+        const back = new THREE.Mesh(new THREE.BoxGeometry(width, 1.2, 0.5), new THREE.MeshStandardMaterial({ color: colorHex }));
+        back.position.set(0, 1.1, 0.7);
+        group.add(back);
+
+        group.position.set(x, y, z);
+        group.rotation.y = rotY;
+        scene.add(group);
+      }
+
+      function createCoffeeTable(x, y, z) {
+        const table = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.45, 1.4), new THREE.MeshStandardMaterial({ color: 0x334155 }));
+        table.position.set(x, 0.3, z);
+        scene.add(table);
+      }
+
+      function createLedNeonSign(x, y, z, rotY = 0) {
+        const group = new THREE.Group();
+        group.rotation.y = rotY;
+
+        const backing = new THREE.Mesh(new THREE.BoxGeometry(15.2, 3.2, 0.18), new THREE.MeshStandardMaterial({ color: 0x030712 }));
+        group.add(backing);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024;
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.strokeStyle = '#00f3ff';
+        ctx.lineWidth = 6;
+        ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+
+        ctx.font = '900 80px "Plus Jakarta Sans", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#00f3ff';
+        ctx.shadowColor = '#00f3ff';
+        ctx.shadowBlur = 25;
+        ctx.fillText('CRATERA DO JOTA', canvas.width / 2, canvas.height / 2);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const signMat = new THREE.MeshBasicMaterial({ map: texture });
+        const panel = new THREE.Mesh(new THREE.PlaneGeometry(14.8, 3.0), signMat);
+        panel.position.set(0, 0, 0.1);
+        group.add(panel);
+
+        const neonLight = new THREE.PointLight(0x00f3ff, 2.5, 18);
+        neonLight.position.set(0, 0, 1.2);
+        group.add(neonLight);
+
+        group.position.set(x, y, z);
+        scene.add(group);
+      }
+
+      function createZoneLabel(x, y, z, text) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        ctx.roundRect(10, 10, 492, 108, 24);
+        ctx.fill();
+        ctx.strokeStyle = '#6366f1';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = 'bold 36px "Plus Jakarta Sans", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 256, 64);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }));
+        sprite.position.set(x, y, z);
+        sprite.scale.set(6, 1.5, 1);
+        scene.add(sprite);
+      }
+
+      function createCinemaTV(x, y, z) {
+        const tvGroup = new THREE.Group();
+        const screenW = 9.6;
+        const screenH = 5.4;
+
+        const frame = new THREE.Mesh(new THREE.BoxGeometry(screenW + 0.6, screenH + 0.45, 0.35), new THREE.MeshStandardMaterial({ color: 0x020617 }));
+        tvGroup.add(frame);
+
+        APP.defaultTVCanvas = document.createElement('canvas');
+        APP.defaultTVCanvas.width = 1280;
+        APP.defaultTVCanvas.height = 720;
+        APP.defaultTVCtx = APP.defaultTVCanvas.getContext('2d');
+
+        APP.screenTexture = new THREE.CanvasTexture(APP.defaultTVCanvas);
+        const screenMat = new THREE.MeshBasicMaterial({ map: APP.screenTexture });
+        APP.tvScreenMesh = new THREE.Mesh(new THREE.PlaneGeometry(screenW, screenH), screenMat);
+        APP.tvScreenMesh.position.set(0, 0, 0.2);
+        tvGroup.add(APP.tvScreenMesh);
+
+        tvGroup.position.set(x, y, z);
+        scene.add(tvGroup);
+
+        drawDefaultTVScreen(0);
+      }
+
+      function drawDefaultTVScreen(time) {
+        if (!APP.defaultTVCtx || APP.localScreenStream || APP.remoteScreenStreamActive) return;
+        const ctx = APP.defaultTVCtx;
+        const w = 1280, h = 720;
+
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 48px "Plus Jakarta Sans", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('📺 TELÃO DE TRANSMISSÃO 16:9', w / 2, 340);
+
+        ctx.fillStyle = '#818cf8';
+        ctx.font = '600 24px "Plus Jakarta Sans", sans-serif';
+        ctx.fillText('Compartilhe sua tela ou assista com todos ao vivo!', w / 2, 400);
+
+        if (APP.screenTexture) APP.screenTexture.needsUpdate = true;
+      }
+
+      function openCinemaFullscreen() {
+        const modal = document.getElementById('modal-cinema-fullscreen');
+        const video = document.getElementById('cinema-fullscreen-video');
+        const canvas = document.getElementById('cinema-canvas-fallback');
+        if (!modal || !video || !canvas) return;
+
+        APP.isCinemaOpen = true;
+        modal.classList.remove('hidden');
+
+        const activeStream = (APP.screenVideoElem && APP.screenVideoElem.srcObject) || APP.localScreenStream;
+        if (activeStream) {
+          video.srcObject = activeStream;
+          video.classList.remove('hidden');
+          canvas.classList.add('hidden');
+          // Muted = true para não duplicar o áudio com o elemento tv-stream-audio que já toca no fundo
+          video.muted = true;
+          video.play().catch(() => {});
+        } else {
+          video.classList.add('hidden');
+          canvas.classList.remove('hidden');
+        }
+      }
+
+      function closeCinemaFullscreen() {
+        const modal = document.getElementById('modal-cinema-fullscreen');
+        if (!modal) return;
+        APP.isCinemaOpen = false;
+        modal.classList.add('hidden');
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      }
+
+      function toggleNativeFullscreen() {
+        const modal = document.getElementById('modal-cinema-fullscreen');
+        if (!document.fullscreenElement) {
+          (modal || document.documentElement).requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+
+      function createAvatarMesh(colorHex, name, isHost = false, ping = 0) {
+        const group = new THREE.Group();
+
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 1.2, 16), new THREE.MeshStandardMaterial({ color: colorHex }));
+        body.position.y = 0.9;
+        group.add(body);
+
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.52, 16, 16), new THREE.MeshStandardMaterial({ color: colorHex }));
+        head.position.y = 1.5;
+        group.add(head);
+
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), eyeMat);
+        leftEye.position.set(0.18, 1.55, 0.45);
+        const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), eyeMat);
+        rightEye.position.set(-0.18, 1.55, 0.45);
+        group.add(leftEye, rightEye);
+
+        const voiceRingMat = new THREE.MeshBasicMaterial({ color: 0x10b981, side: THREE.DoubleSide, transparent: true, opacity: 0 });
+        const voiceRing = new THREE.Mesh(new THREE.RingGeometry(0.7, 0.85, 24), voiceRingMat);
+        voiceRing.rotation.x = -Math.PI / 2;
+        voiceRing.position.y = 0.05;
+        group.add(voiceRing);
+        group.userData.voiceRingMat = voiceRingMat;
+
+        const nameSprite = createNameTagSprite(name, colorHex, isHost, ping);
+        nameSprite.position.set(0, 2.4, 0);
+        group.add(nameSprite);
+        group.userData.nameSprite = nameSprite;
+
+        const emoteSprite = createEmoteSprite('');
+        emoteSprite.position.set(0, 3.4, 0);
+        emoteSprite.visible = false;
+        group.add(emoteSprite);
+        group.userData.emoteSprite = emoteSprite;
+
+        const hologramHolder = new THREE.Group();
+        hologramHolder.position.set(0, 2.9, 0);
+        group.add(hologramHolder);
+        group.userData.hologramHolder = hologramHolder;
+
+        return group;
+      }
+
+      function createNameTagSprite(name, colorHex, isHost = false, ping = 0) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 300;
+        canvas.height = 70;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+        ctx.roundRect(8, 8, 284, 54, 16);
+        ctx.fill();
+        ctx.strokeStyle = isHost ? '#f59e0b' : colorHex;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 20px "Plus Jakarta Sans", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        let text = isHost ? `👑 ${name}` : name;
+        if (ping > 0) text += ` • ${ping}ms`;
+        ctx.fillText(text, 150, 35);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }));
+        sprite.scale.set(3.0, 0.7, 1);
+        sprite.userData.canvas = canvas;
+        sprite.userData.ctx = ctx;
+        return sprite;
+      }
+
+      function createEmoteSprite(emoji) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 128;
+        const texture = new THREE.CanvasTexture(canvas);
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }));
+        sprite.scale.set(1.5, 1.5, 1);
+        sprite.userData.canvas = canvas;
+        sprite.userData.ctx = canvas.getContext('2d');
+        return sprite;
+      }
+
+      function updateEmoteOnAvatar(avatarMesh, emoji) {
+        if (!avatarMesh || !avatarMesh.userData.emoteSprite) return;
+        const sprite = avatarMesh.userData.emoteSprite;
+        const ctx = sprite.userData.ctx;
+        ctx.clearRect(0, 0, 128, 128);
+        ctx.font = '76px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(emoji, 64, 64);
+        sprite.material.map.needsUpdate = true;
+        sprite.visible = true;
+
+        clearTimeout(sprite.userData.hideTimer);
+        sprite.userData.hideTimer = setTimeout(() => { sprite.visible = false; }, 3000);
+      }
+
+      function setAvatarHologram(avatarMesh, imgUrl) {
+        if (!avatarMesh || !avatarMesh.userData.hologramHolder) return;
+        const holder = avatarMesh.userData.hologramHolder;
+        while (holder.children.length > 0) {
+          holder.remove(holder.children[0]);
+        }
+        if (!imgUrl) return;
+
+        const img = new Image();
+        img.onload = () => {
+          const texture = new THREE.Texture(img);
+          texture.needsUpdate = true;
+          const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }));
+          sprite.scale.set(1.2, 1.2, 1);
+          holder.add(sprite);
+        };
+        img.src = imgUrl;
+      }
+
+      function createLocalAvatar() {
+        if (myAvatarMesh) scene.remove(myAvatarMesh);
+        myAvatarMesh = createAvatarMesh(APP.myUser.color, APP.myUser.name, APP.isHost, 0);
+        myAvatarMesh.position.set(currentPos.x, 0, currentPos.z);
+        scene.add(myAvatarMesh);
+
+        if (APP.myUser.hologramUrl) {
+          setAvatarHologram(myAvatarMesh, APP.myUser.hologramUrl);
+        }
+      }
+
+      function renderLoop() {
+        requestAnimationFrame(renderLoop);
+        const delta = Math.min(animatedClock.getDelta(), 0.1);
+        const time = animatedClock.getElapsedTime();
+
+        if (APP.viewMode === '3d') {
+          if (!APP.localScreenStream && !APP.remoteScreenStreamActive) {
+            drawDefaultTVScreen(time);
+          }
+
+          handleMovement(delta, time);
+          updateRemotePeers(delta, time);
+          checkCurrentZone();
+
+          if (myAvatarMesh) {
+            if (APP.myUser.isSpeaking) {
+              const squashY = 1 + Math.sin(time * 24) * 0.22;
+              const squashXZ = 1 - Math.sin(time * 24) * 0.14;
+              myAvatarMesh.scale.set(squashXZ, squashY, squashXZ);
+              myAvatarMesh.rotation.z = Math.sin(time * 18) * 0.18;
+            } else {
+              myAvatarMesh.scale.set(1, 1, 1);
+              myAvatarMesh.rotation.z = 0;
+            }
+
+            const targetCamX = myAvatarMesh.position.x + 24;
+            const targetCamZ = myAvatarMesh.position.z + 24;
+            camera.position.x += (targetCamX - camera.position.x) * 0.05;
+            camera.position.z += (targetCamZ - camera.position.z) * 0.05;
+            camera.lookAt(myAvatarMesh.position.x, 0, myAvatarMesh.position.z);
+          }
+
+          renderer.render(scene, camera);
+        }
+
+        updateAudioLevel();
+      }
+
+      function handleMovement(delta, time) {
+        if (!myAvatarMesh) return;
+
+        let moveX = 0, moveZ = 0;
+        if (keyState.w || keyState.arrowup) { moveX -= 1; moveZ -= 1; }
+        if (keyState.s || keyState.arrowdown) { moveX += 1; moveZ += 1; }
+        if (keyState.a || keyState.arrowleft) { moveX -= 1; moveZ += 1; }
+        if (keyState.d || keyState.arrowright) { moveX += 1; moveZ -= 1; }
+
+        const speed = 7.5;
+        if (moveX !== 0 || moveZ !== 0) {
+          const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
+          currentPos.x = THREE.MathUtils.clamp(currentPos.x + (moveX / len) * speed * delta, -18, 18);
+          currentPos.z = THREE.MathUtils.clamp(currentPos.z + (moveZ / len) * speed * delta, -6, 18);
+          targetPos.copy(currentPos);
+        } else {
+          const dist = currentPos.distanceTo(targetPos);
+          if (dist > 0.08) {
+            const dir = new THREE.Vector3().subVectors(targetPos, currentPos).normalize();
+            currentPos.addScaledVector(dir, Math.min(speed * delta, dist));
+          }
+        }
+
+        const isWalking = (moveX !== 0 || moveZ !== 0) || (currentPos.distanceTo(targetPos) > 0.15);
+        if (isWalking) {
+          myAvatarMesh.rotation.y = Math.atan2(moveX || (targetPos.x - currentPos.x), moveZ || (targetPos.z - currentPos.z));
+        }
+
+        const elevation = getGroundElevation(currentPos.x, currentPos.z);
+        const bounce = isWalking ? Math.abs(Math.sin(time * 12)) * 0.18 : 0;
+        myAvatarMesh.position.set(currentPos.x, elevation + bounce, currentPos.z);
+
+        if (currentPos.x <= -15.0 && currentPos.x >= -19.0 && currentPos.z >= 16.0 && !APP.isExiting) {
+          APP.isExiting = true;
+          exitRoom();
+          setTimeout(() => { APP.isExiting = false; }, 3000);
+        }
+
+        APP.myUser.x = currentPos.x;
+        APP.myUser.z = currentPos.z;
+        broadcastPositionThrottle();
+      }
+
+      let lastBroadcastTime = 0;
+      function broadcastPositionThrottle(force = false) {
+        const now = Date.now();
+        if (force || now - lastBroadcastTime > 40) {
+          lastBroadcastTime = now;
+          broadcastToPeers({
+            type: 'pos',
+            x: APP.myUser.x,
+            z: APP.myUser.z,
+            isSpeaking: APP.myUser.isSpeaking,
+            isMuted: APP.myUser.isMuted
+          });
+        }
+      }
+
+      function updateRemotePeers(delta, time) {
+        APP.peers.forEach(peerData => {
+          if (!peerData.mesh) return;
+
+          if (peerData.targetX !== undefined && peerData.targetZ !== undefined) {
+            const dx = peerData.targetX - peerData.mesh.position.x;
+            const dz = peerData.targetZ - peerData.mesh.position.z;
+            if (Math.sqrt(dx * dx + dz * dz) > 0.05) {
+              peerData.mesh.position.x += dx * 0.2;
+              peerData.mesh.position.z += dz * 0.2;
+              peerData.mesh.rotation.y = Math.atan2(dx, dz);
+            }
+          }
+
+          const elev = getGroundElevation(peerData.mesh.position.x, peerData.mesh.position.z);
+          peerData.mesh.position.y = elev;
+
+          if (peerData.isSpeaking) {
+            const squashY = 1 + Math.sin(time * 24) * 0.22;
+            const squashXZ = 1 - Math.sin(time * 24) * 0.14;
+            peerData.mesh.scale.set(squashXZ, squashY, squashXZ);
+            peerData.mesh.rotation.z = Math.sin(time * 18) * 0.18;
+          } else {
+            peerData.mesh.scale.set(1, 1, 1);
+            peerData.mesh.rotation.z = 0;
+          }
+
+          if (peerData.mesh.userData.voiceRingMat) {
+            peerData.mesh.userData.voiceRingMat.opacity = peerData.isSpeaking ? 0.8 : 0;
+          }
+
+          if (peerData.audioElem) {
+            if (peerData.isLocallyMuted) {
+              peerData.audioElem.volume = 0;
+            } else {
+              let vol = 1.0;
+              if (APP.useSpatialAudio && myAvatarMesh) {
+                const dist = myAvatarMesh.position.distanceTo(peerData.mesh.position);
+                vol = Math.max(0, Math.min(1, 1 - (dist / 18)));
+              }
+              const ratio = (peerData.customVolume !== undefined ? peerData.customVolume : 100) / 100;
+              peerData.audioElem.volume = Math.max(0, Math.min(1.0, vol * ratio));
+            }
+          }
+        });
+      }
+
+      function checkCurrentZone() {
+        if (!myAvatarMesh || APP.viewMode !== '3d') return;
+        const x = myAvatarMesh.position.x;
+        const z = myAvatarMesh.position.z;
+
+        let detected = ZONES.find(zone => x >= zone.minX && x <= zone.maxX && z >= zone.minZ && z <= zone.maxZ);
+        const name = detected ? detected.name : 'Área Livre';
+        const icon = detected ? detected.icon : '🚶';
+
+        if (APP.activeZone !== name) {
+          APP.activeZone = name;
+          APP.myUser.zone = name;
+
+          const badgeIcon = document.getElementById('hud-zone-icon');
+          const badgeName = document.getElementById('hud-zone-name');
+          if (badgeIcon) badgeIcon.textContent = icon;
+          if (badgeName) badgeName.textContent = name;
+
+          const banner = document.getElementById('zone-action-banner');
+          if (banner) {
+            if (detected && detected.id === 'TV_Room') {
+              banner.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-4');
+            } else {
+              banner.classList.add('opacity-0', 'pointer-events-none', '-translate-y-4');
+            }
+          }
+        }
+      }
+
+      function setViewMode(mode) {
+        APP.viewMode = mode;
+        const webglEl = document.getElementById('webgl-container');
+        const discordEl = document.getElementById('discord-view-container');
+        const modeText = document.getElementById('view-mode-text');
+
+        if (mode === '2d') {
+          if (webglEl) webglEl.style.display = 'none';
+          if (discordEl) discordEl.classList.remove('hidden');
+          if (modeText) modeText.textContent = 'Modo Sala 3D';
+          renderDiscordGrid();
+        } else {
+          if (webglEl) webglEl.style.display = 'block';
+          if (discordEl) discordEl.classList.add('hidden');
+          if (modeText) modeText.textContent = 'Modo Discord';
+        }
+      }
+
+      function renderDiscordGrid() {
+        const grid = document.getElementById('discord-participants-grid');
+        if (!grid) return;
+        grid.innerHTML = '';
+
+        const myTile = document.createElement('div');
+        myTile.className = `relative rounded-3xl p-4 flex flex-col items-center justify-center min-h-[170px] bg-slate-900 border ${APP.myUser.isSpeaking ? 'border-emerald-400' : 'border-slate-800'}`;
+        myTile.innerHTML = `<span class="font-bold text-white">${APP.myUser.name} (Você)</span>`;
+        grid.appendChild(myTile);
+
+        APP.peers.forEach(p => {
+          const tile = document.createElement('div');
+          tile.className = `relative rounded-3xl p-4 flex flex-col items-center justify-center min-h-[170px] bg-slate-900 border ${p.isSpeaking ? 'border-emerald-400' : 'border-slate-800'}`;
+          tile.innerHTML = `<span class="font-bold text-slate-200">${p.name}</span>`;
+          grid.appendChild(tile);
+        });
+      }
+
+      async function toggleWebcam() {
+        if (APP.isWebcamActive) {
+          if (APP.localWebcamStream) APP.localWebcamStream.getTracks().forEach(t => t.stop());
+          APP.isWebcamActive = false;
+          showToast('Webcam desligada.', 'info');
+        } else {
+          try {
+            APP.localWebcamStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            APP.isWebcamActive = true;
+            showToast('Webcam ligada!', 'success');
+          } catch (e) {
+            showToast('Erro ao ligar webcam.', 'warning');
+          }
+        }
+      }
+
+      async function setupLocalMicrophone(preferredDeviceId = '') {
+        if (APP.audioContext && APP.audioContext.state === 'suspended') {
+          try { await APP.audioContext.resume(); } catch (e) {}
+        }
+
+        const deviceId = preferredDeviceId || APP.selectedAudioInputId;
+        let stream = null;
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          console.warn('getUserMedia não suportado ou bloqueado por falta de HTTPS.');
+          updateMicUI(false);
+          showToast('Modo Ouvinte ativado: o celular exige HTTPS para ligar o microfone.', 'info');
+          return null;
+        }
+
+        try {
+          // 1ª Tentativa: Com cancelamento de ruído e eco
+          const constraintsAdv = {
+            audio: deviceId ? { deviceId: { exact: deviceId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                            : { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            video: false
+          };
+          stream = await navigator.mediaDevices.getUserMedia(constraintsAdv);
+        } catch (advErr) {
+          console.warn('Tentando fallback simples de microfone para celular...', advErr);
+          try {
+            // 2ª Tentativa: Fallback simples (audio: true)
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: deviceId ? { deviceId: { exact: deviceId } } : true,
+              video: false
+            });
+          } catch (basicErr) {
+            console.error('Falha ao obter microfone:', basicErr);
+            updateMicUI(false);
+
+            if (basicErr.name === 'NotAllowedError' || basicErr.name === 'PermissionDeniedError') {
+              showToast('Permissão de microfone negada! Toque no cadeado da barra de endereço para permitir.', 'warning');
+            } else if (!window.isSecureContext && location.protocol !== 'https:') {
+              showToast('No celular em HTTP, o navegador bloqueia o microfone. Entrando como Ouvinte!', 'info');
+            } else {
+              showToast('Microfone indisponível. Entrando no Modo Ouvinte!', 'info');
+            }
+            return null;
+          }
+        }
+
+        if (stream) {
+          if (APP.localAudioStream) {
+            APP.localAudioStream.getTracks().forEach(t => t.stop());
+          }
+          APP.localAudioStream = stream;
+          APP.isMicMuted = false;
+          setupAudioAnalyser(stream);
+          updateMicUI(true);
+          populateAudioDevices(false);
+
+          // Transmite aos peers conectados
+          APP.peers.forEach((peerData, peerId) => {
+            if (APP.peer && !peerId.startsWith('bot_')) {
+              APP.peer.call(peerId, stream, { metadata: { type: 'audio' } });
+            }
+          });
+          showToast('Microfone conectado com sucesso! 🎙️', 'success');
+        }
+        return stream;
+      }
+
+      function setupAudioAnalyser(stream) {
+        try {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContextClass) return;
+          if (!APP.audioContext) {
+            APP.audioContext = new AudioContextClass();
+          }
+          if (APP.audioContext.state === 'suspended') {
+            APP.audioContext.resume().catch(() => {});
+          }
+          const source = APP.audioContext.createMediaStreamSource(stream);
+          APP.micAnalyser = APP.audioContext.createAnalyser();
+          APP.micAnalyser.fftSize = 64;
+          source.connect(APP.micAnalyser);
+        } catch (e) {
+          console.warn('Erro ao configurar analisador de áudio:', e);
+        }
+      }
+
+      function updateAudioLevel() {
+        if (!APP.micAnalyser || APP.isMicMuted) {
+          if (APP.myUser.isSpeaking) {
+            APP.myUser.isSpeaking = false;
+            updateSpeakingUI(false);
+          }
+          const micBar = document.getElementById('mic-test-bar');
+          if (micBar) micBar.style.width = '0%';
+          return;
+        }
+
+        const dataArray = new Uint8Array(APP.micAnalyser.frequencyBinCount);
+        APP.micAnalyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+        const isSpeaking = (sum / dataArray.length) > 18;
+
+        const micBar = document.getElementById('mic-test-bar');
+        if (micBar) {
+          const pct = Math.min(100, Math.round((sum / dataArray.length) * 3));
+          micBar.style.width = `${pct}%`;
+        }
+
+        if (isSpeaking !== APP.myUser.isSpeaking) {
+          APP.myUser.isSpeaking = isSpeaking;
+          updateSpeakingUI(isSpeaking);
+        }
+      }
+
+      function updateSpeakingUI(isSpeaking) {
+        const dot = document.getElementById('mic-speaking-indicator');
+        if (dot) dot.classList.toggle('hidden', !isSpeaking);
+        if (myAvatarMesh && myAvatarMesh.userData.voiceRingMat) {
+          myAvatarMesh.userData.voiceRingMat.opacity = isSpeaking ? 0.85 : 0;
+        }
+      }
+
+      function toggleMic() {
+        if (!APP.localAudioStream) {
+          setupLocalMicrophone();
+          return;
+        }
+        APP.isMicMuted = !APP.isMicMuted;
+        APP.localAudioStream.getAudioTracks().forEach(track => { track.enabled = !APP.isMicMuted; });
+        updateMicUI(!APP.isMicMuted);
+        showToast(APP.isMicMuted ? 'Microfone Mutado 🔇' : 'Microfone Ativado 🎙️', 'info');
+      }
+
+      function updateMicUI(isActive) {
+        const iconOn = document.getElementById('icon-mic-on');
+        const iconOff = document.getElementById('icon-mic-off');
+        const btn = document.getElementById('btn-toggle-mic');
+        if (isActive) {
+          if (iconOn) iconOn.classList.remove('hidden');
+          if (iconOff) iconOff.classList.add('hidden');
+          if (btn) btn.classList.add('bg-indigo-600');
+        } else {
+          if (iconOn) iconOn.classList.add('hidden');
+          if (iconOff) iconOff.classList.remove('hidden');
+          if (btn) btn.classList.remove('bg-indigo-600');
+        }
+      }
+
+      async function toggleScreenShare() {
+        if (APP.localScreenStream) {
+          APP.localScreenStream.getTracks().forEach(t => t.stop());
+          APP.localScreenStream = null;
+          APP.myUser.isSharingScreen = false;
+          if (APP.tvScreenMesh && APP.screenTexture) {
+            APP.tvScreenMesh.material.map = APP.screenTexture;
+            APP.tvScreenMesh.material.needsUpdate = true;
+          }
+          const discordFeatured = document.getElementById('discord-featured-screen');
+          if (discordFeatured) discordFeatured.classList.add('hidden');
+          showToast('Transmissão encerrada.', 'info');
+          return;
+        }
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+          showToast('Compartilhamento de tela não é suportado pelo navegador deste dispositivo.', 'warning');
+          return;
+        }
+
+        try {
+          let stream = null;
+          showToast('💡 Dica: Marque "Compartilhar áudio" na janela de seleção para enviar som!', 'info');
+
+          try {
+            stream = await navigator.mediaDevices.getDisplayMedia({
+              video: { displaySurface: 'monitor', cursor: 'always' },
+              audio: {
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false,
+                suppressLocalAudioPlayback: false
+              }
+            });
+          } catch (optErr) {
+            try {
+              stream = await navigator.mediaDevices.getDisplayMedia({
+                video: true,
+                audio: true
+              });
+            } catch (fallbackErr) {
+              stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+            }
+          }
+
+          if (!stream) {
+            showToast('Nenhuma tela selecionada para transmissão.', 'warning');
+            return;
+          }
+
+          APP.localScreenStream = stream;
+          APP.myUser.isSharingScreen = true;
+
+          let screenVid = document.getElementById('tv-screen-source-video');
+          if (!screenVid) {
+            screenVid = document.createElement('video');
+            screenVid.id = 'tv-screen-source-video';
+            screenVid.autoplay = true;
+            screenVid.playsInline = true;
+            screenVid.muted = true;
+            screenVid.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;';
+            document.body.appendChild(screenVid);
+          }
+          screenVid.srcObject = stream;
+          screenVid.muted = true;
+          screenVid.play().catch(() => {});
+          APP.screenVideoElem = screenVid;
+
+          const videoTexture = new THREE.VideoTexture(screenVid);
+          if (APP.tvScreenMesh) {
+            APP.tvScreenMesh.material.map = videoTexture;
+            APP.tvScreenMesh.material.needsUpdate = true;
+          }
+
+          const discordVideo = document.getElementById('discord-screen-video');
+          const discordFeatured = document.getElementById('discord-featured-screen');
+          if (discordVideo && discordFeatured) {
+            discordVideo.srcObject = stream;
+            discordVideo.muted = true;
+            discordFeatured.classList.remove('hidden');
+            const authorEl = document.getElementById('discord-screen-author');
+            if (authorEl) authorEl.textContent = 'Você (Ao Vivo)';
+          }
+
+          const hasAudio = stream.getAudioTracks().length > 0;
+          if (hasAudio) {
+            showToast('Tela e áudio sendo transmitidos ao vivo! 📺🔊', 'success');
+          } else {
+            showToast('Tela transmitida (sem som). Dica: selecione "Aba" ou marque "Compartilhar áudio" para som.', 'info');
+          }
+
+          const videoTrack = stream.getVideoTracks()[0];
+          if (videoTrack) {
+            videoTrack.onended = () => {
+              if (APP.localScreenStream) {
+                APP.localScreenStream = null;
+                APP.myUser.isSharingScreen = false;
+                if (APP.tvScreenMesh && APP.screenTexture) {
+                  APP.tvScreenMesh.material.map = APP.screenTexture;
+                  APP.tvScreenMesh.material.needsUpdate = true;
+                }
+                const discFeat = document.getElementById('discord-featured-screen');
+                if (discFeat) discFeat.classList.add('hidden');
+                showToast('Transmissão de tela encerrada.', 'info');
+              }
+            };
+          }
+
+          APP.peers.forEach((peerData, peerId) => {
+            if (APP.peer && !peerId.startsWith('bot_')) {
+              APP.peer.call(peerId, stream, { metadata: { type: 'screen' } });
+            }
+          });
+
+        } catch (e) {
+          if (e.name === 'NotAllowedError') {
+            showToast('Permissão de compartilhamento cancelada pelo usuário.', 'info');
+          } else {
+            showToast('Não foi possível iniciar a transmissão neste aparelho.', 'warning');
+          }
+        }
+      }
+
+      // --- MOTOR P2P MESH DETERMINÍSTICO E DINÂMICO ---
+      let heartbeatTimer = null;
+
+      function initP2PRoom(roomId, isHost) {
+        APP.roomId = roomId;
+        APP.cleanRoomKey = cleanKey(roomId);
+        saveRoomToCache(roomId);
+
+        const roomTitle = document.getElementById('hud-room-title');
+        if (roomTitle) roomTitle.textContent = `Sala: ${roomId}`;
+
+        if (APP.peer && !APP.peer.destroyed) {
+          try { APP.peer.destroy(); } catch (e) {}
+        }
+        APP.peers.clear();
+
+        joinRoomP2P();
+      }
+
+      function joinRoomP2P() {
+        const hostId = `cratera_${APP.cleanRoomKey}_host`;
+        let hostPeer = null;
+
+        try {
+          hostPeer = new Peer(hostId, PEER_CONFIG);
+        } catch (e) {
+          becomeClient(hostId);
+          return;
+        }
+
+        let hostResolved = false;
+
+        hostPeer.on('open', (id) => {
+          hostResolved = true;
+          APP.peer = hostPeer;
+          APP.myPeerId = id;
+          APP.isHost = true;
+
+          const adminBadge = document.getElementById('hud-admin-badge');
+          if (adminBadge) adminBadge.classList.remove('hidden');
+          const panelAdminBadge = document.getElementById('panel-admin-role-badge');
+          if (panelAdminBadge) panelAdminBadge.classList.remove('hidden');
+
+          setupPeerEngine();
+          updateNetworkStatus(true, '👑 Host da Sala (Aguardando colegas)');
+          showToast('Você é o Host da sala 👑', 'success');
+          startHeartbeat();
+        });
+
+        hostPeer.on('error', (err) => {
+          if (hostResolved) return;
+          hostResolved = true;
+          // ID já em uso significa que o Host já está na sala! Entra como participante:
+          try { hostPeer.destroy(); } catch (e) {}
+          becomeClient(hostId);
+        });
+      }
+
+      function becomeClient(hostId) {
+        const myClientId = `cratera_${APP.cleanRoomKey}_p_${Math.random().toString(36).substring(2, 9)}`;
+        let clientPeer = null;
+        try {
+          clientPeer = new Peer(myClientId, PEER_CONFIG);
+        } catch (e) {
+          showToast('Erro ao criar sessão P2P.', 'error');
+          return;
+        }
+
+        clientPeer.on('open', (id) => {
+          APP.peer = clientPeer;
+          APP.myPeerId = id;
+          APP.isHost = false;
+
+          const adminBadge = document.getElementById('hud-admin-badge');
+          if (adminBadge) adminBadge.classList.add('hidden');
+          const panelAdminBadge = document.getElementById('panel-admin-role-badge');
+          if (panelAdminBadge) panelAdminBadge.classList.add('hidden');
+
+          setupPeerEngine();
+          updateNetworkStatus(false, 'Conectando ao Host da sala...');
+          showToast('Entrando na sala do Host...', 'info');
+
+          // Conecta diretamente ao Host
+          connectToPeer(hostId);
+          startHeartbeat();
+        });
+
+        clientPeer.on('error', (err) => {
+          console.warn('Erro P2P Cliente:', err);
+          if (err && err.type === 'peer-unavailable') {
+            // Se o Host não foi encontrado, tenta assumir como Host
+            showToast('Host offline, assumindo a sala...', 'info');
+            setTimeout(joinRoomP2P, 800);
+          }
+        });
+      }
+
+      function setupPeerEngine() {
+        if (!APP.peer) return;
+
+        APP.peer.on('connection', (conn) => {
+          setupDataConnection(conn);
+        });
+
+        APP.peer.on('call', (call) => {
+          handleIncomingCall(call);
+        });
+
+        APP.peer.on('disconnected', () => {
+          if (APP.peer && !APP.peer.destroyed) APP.peer.reconnect();
+        });
+      }
+
+      function connectToPeer(targetPeerId) {
+        if (!APP.peer || APP.peer.destroyed || targetPeerId === APP.myPeerId) return;
+
+        const existing = APP.peers.get(targetPeerId);
+        if (existing && existing.dataConn && existing.dataConn.open) {
+          return;
+        }
+
+        try {
+          const conn = APP.peer.connect(targetPeerId, {
+            reliable: true,
+            serialization: 'json'
+          });
+          setupDataConnection(conn);
+        } catch (e) {
+          console.warn('Falha ao conectar com peer:', targetPeerId, e);
+        }
+      }
+
+      function setupDataConnection(conn) {
+        if (!conn) return;
+
+        conn.on('open', () => {
+          let peerData = APP.peers.get(conn.peer);
+          if (!peerData) {
+            peerData = createPeerRecord(conn.peer, 'Conectando...', '#10b981', conn.peer.endsWith('_host'));
+          }
+          peerData.dataConn = conn;
+
+          updateNetworkStatus(true);
+          updatePeersListUI();
+
+          // 1. Envia handshake imediato com dados do avatar e coordenadas atuais
+          try {
+            conn.send({
+              type: 'handshake',
+              user: { ...APP.myUser, isHost: APP.isHost }
+            });
+          } catch (e) {}
+
+          // 2. Se eu sou o Host, compartilho a lista dos outros peers para conectar todos em malha
+          if (APP.isHost) {
+            const otherPeerIds = [];
+            APP.peers.forEach((p, pId) => {
+              if (pId !== conn.peer) otherPeerIds.push(pId);
+            });
+            if (otherPeerIds.length > 0) {
+              try {
+                conn.send({
+                  type: 'room_peers',
+                  peers: otherPeerIds
+                });
+              } catch (e) {}
+            }
+          }
+
+          // 3. Chamada de áudio e tela
+          if (APP.localAudioStream && APP.peer) {
+            APP.peer.call(conn.peer, APP.localAudioStream, { metadata: { type: 'audio' } });
+          }
+          if (APP.localScreenStream && APP.peer) {
+            APP.peer.call(conn.peer, APP.localScreenStream, { metadata: { type: 'screen' } });
+          }
+        });
+
+        conn.on('data', (data) => {
+          let peerData = APP.peers.get(conn.peer);
+          if (peerData) peerData.dataConn = conn;
+          handlePeerData(conn.peer, data, conn);
+        });
+
+        conn.on('close', () => {
+          removePeer(conn.peer);
+          updateNetworkStatus(APP.peers.size > 0 || APP.isHost);
+        });
+
+        conn.on('error', (err) => {
+          console.warn('Erro de conexão com peer:', conn.peer, err);
+        });
+      }
+
+      function handleIncomingCall(call) {
+        if (!call) return;
+        const type = (call.metadata && call.metadata.type) || 'audio';
+
+        if (type === 'screen') {
+          call.answer();
+          call.on('stream', (remoteStream) => {
+            applyRemoteScreenToTV(remoteStream, call.peer);
+          });
+        } else if (type === 'webcam') {
+          call.answer();
+          call.on('stream', (remoteStream) => {
+            attachWebcamStreamToPeer(call.peer, remoteStream);
+          });
+        } else {
+          // Se tiver áudio local, envia; senão, envia stream silenciosa para não falhar a negociação
+          const outStream = APP.localAudioStream || createSilentAudioStream() || undefined;
+          call.answer(outStream);
+          call.on('stream', (remoteStream) => {
+            attachAudioStreamToPeer(call.peer, remoteStream);
+          });
+        }
+      }
+
+      function attachWebcamStreamToPeer(peerId, stream) {
+        let peerData = APP.peers.get(peerId);
+        if (!peerData) {
+          peerData = createPeerRecord(peerId, 'Amigo', '#10b981');
+        }
+        peerData.webcamStream = stream;
+        peerData.isWebcamActive = true;
+        if (APP.viewMode === '2d') renderDiscordGrid();
+      }
+
+      function applyRemoteScreenToTV(stream, peerId) {
+        APP.remoteScreenStreamActive = true;
+        const senderPeer = APP.peers.get(peerId);
+        APP.screenSharingPeerName = senderPeer ? senderPeer.name : 'Colega da Sala';
+
+        let screenVid = document.getElementById('tv-screen-source-video');
+        if (!screenVid) {
+          screenVid = document.createElement('video');
+          screenVid.id = 'tv-screen-source-video';
+          screenVid.autoplay = true;
+          screenVid.playsInline = true;
+          screenVid.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;';
+          document.body.appendChild(screenVid);
+        }
+        screenVid.muted = true;
+        screenVid.srcObject = stream;
+        screenVid.play().catch(e => console.warn('Falha no play da textura de vídeo:', e));
+        APP.screenVideoElem = screenVid;
+
+        const videoTexture = new THREE.VideoTexture(screenVid);
+        if (APP.tvScreenMesh) {
+          APP.tvScreenMesh.material.map = videoTexture;
+          APP.tvScreenMesh.material.needsUpdate = true;
+        }
+
+        const audioTracks = stream.getAudioTracks();
+        if (audioTracks.length > 0) {
+          let tvAudio = document.getElementById('tv-stream-audio');
+          if (!tvAudio) {
+            tvAudio = document.createElement('audio');
+            tvAudio.id = 'tv-stream-audio';
+            tvAudio.autoplay = true;
+            tvAudio.playsInline = true;
+            document.body.appendChild(tvAudio);
+          }
+          tvAudio.srcObject = new MediaStream(audioTracks);
+          tvAudio.volume = 1.0;
+          tvAudio.play().catch(err => {
+            console.warn('Autoplay do áudio da tela bloqueado:', err);
+            showToast('🔊 Transmissão com som detectada! Toque na tela para ouvir.', 'info');
+          });
+        }
+
+        const discordVideo = document.getElementById('discord-screen-video');
+        const discordFeatured = document.getElementById('discord-featured-screen');
+        if (discordVideo && discordFeatured) {
+          discordVideo.srcObject = stream;
+          discordVideo.muted = true;
+          discordFeatured.classList.remove('hidden');
+          const authorEl = document.getElementById('discord-screen-author');
+          if (authorEl) authorEl.textContent = APP.screenSharingPeerName;
+        }
+
+        const videoTrack = stream.getVideoTracks()[0];
+        if (videoTrack) {
+          videoTrack.onended = () => {
+            APP.remoteScreenStreamActive = false;
+            if (APP.tvScreenMesh && APP.screenTexture) {
+              APP.tvScreenMesh.material.map = APP.screenTexture;
+              APP.tvScreenMesh.material.needsUpdate = true;
+            }
+            const tvAudio = document.getElementById('tv-stream-audio');
+            if (tvAudio) {
+              tvAudio.pause();
+              tvAudio.srcObject = null;
+            }
+            const discFeat = document.getElementById('discord-featured-screen');
+            if (discFeat) discFeat.classList.add('hidden');
+            showToast(`${APP.screenSharingPeerName} encerrou a transmissão.`, 'info');
+          };
+        }
+
+        const msg = audioTracks.length > 0
+          ? `${APP.screenSharingPeerName} está transmitindo tela com som! 📺🔊`
+          : `${APP.screenSharingPeerName} está transmitindo tela! 📺`;
+        showToast(msg, 'info');
+      }
+
+      function attachAudioStreamToPeer(peerId, stream) {
+        let peerData = APP.peers.get(peerId);
+        if (!peerData) {
+          peerData = createPeerRecord(peerId, 'Amigo', '#10b981');
+        }
+
+        let audio = peerData.audioElem;
+        if (!audio) {
+          audio = document.createElement('audio');
+          audio.autoplay = true;
+          peerData.audioElem = audio;
+          document.body.appendChild(audio);
+        }
+        audio.srcObject = stream;
+        audio.play().catch(() => {});
+      }
+
+      function showSpeechBubble(avatarMesh, text, colorHex = '#6366f1') {
+        if (!avatarMesh || !text) return;
+        
+        if (avatarMesh.userData.speechBubble) {
+          avatarMesh.remove(avatarMesh.userData.speechBubble);
+          avatarMesh.userData.speechBubble = null;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 640;
+        canvas.height = 200;
+        const ctx = canvas.getContext('2d');
+
+        ctx.font = 'bold 36px "Plus Jakarta Sans", sans-serif';
+        const words = text.split(' ');
+        const lines = [];
+        let currentLine = '';
+        const maxW = 560;
+
+        for (let i = 0; i < words.length; i++) {
+          const test = currentLine ? currentLine + ' ' + words[i] : words[i];
+          if (ctx.measureText(test).width > maxW && i > 0) {
+            lines.push(currentLine);
+            currentLine = words[i];
+            if (lines.length >= 2) {
+              currentLine += '...';
+              break;
+            }
+          } else {
+            currentLine = test;
+          }
+        }
+        if (currentLine && lines.length < 3) lines.push(currentLine);
+
+        const boxX = 16, boxY = 16, boxW = 608, boxH = 140, radius = 24;
+        
+        ctx.fillStyle = 'rgba(11, 15, 25, 0.94)';
+        ctx.beginPath();
+        ctx.roundRect(boxX, boxY, boxW, boxH, radius);
+        ctx.fill();
+
+        ctx.fillStyle = colorHex + '33';
+        ctx.beginPath();
+        ctx.roundRect(boxX, boxY, boxW, boxH, radius);
+        ctx.fill();
+
+        ctx.strokeStyle = colorHex;
+        ctx.lineWidth = 6;
+        ctx.shadowColor = colorHex;
+        ctx.shadowBlur = 18;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(300, boxY + boxH);
+        ctx.lineTo(320, boxY + boxH + 26);
+        ctx.lineTo(340, boxY + boxH);
+        ctx.closePath();
+        ctx.fillStyle = colorHex;
+        ctx.fill();
+
+        ctx.shadowColor = '#000000';
+        ctx.shadowBlur = 4;
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 36px "Plus Jakarta Sans", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        const startY = boxY + (boxH / 2) - ((lines.length - 1) * 22);
+        lines.forEach((l, idx) => {
+          ctx.fillText(l, 320, startY + (idx * 44));
+        });
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }));
+        sprite.position.set(0, 3.6, 0);
+        sprite.scale.set(5.2, 1.62, 1);
+        avatarMesh.add(sprite);
+        avatarMesh.userData.speechBubble = sprite;
+
+        setTimeout(() => {
+          if (avatarMesh.userData.speechBubble === sprite) {
+            avatarMesh.remove(sprite);
+            avatarMesh.userData.speechBubble = null;
+          }
+        }, 4500);
+      }
+
+      function sendChatMessage(text) {
+        if (!text || !text.trim()) return;
+        const msg = { sender: APP.myUser.name, text: text.trim(), color: APP.myUser.color };
+        addChatMessage(msg);
+        if (myAvatarMesh) showSpeechBubble(myAvatarMesh, msg.text, APP.myUser.color);
+        broadcastToPeers({ type: 'chat', ...msg });
+      }
+
+      function addChatMessage(data) {
+        const list = document.getElementById('chat-messages');
+        if (!list) return;
+
+        const row = document.createElement('div');
+        row.className = 'p-2 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-200';
+        row.innerHTML = `<span class="font-bold" style="color: ${data.color || '#818cf8'}">${data.sender}:</span> <span>${data.text}</span>`;
+        list.appendChild(row);
+        list.scrollTop = list.scrollHeight;
+      }
+
+      function handlePeerData(peerId, data, conn) {
+        if (!data || !data.type) return;
+
+        switch (data.type) {
+          case 'handshake':
+            addOrUpdatePeer(peerId, data.user, conn);
+            try {
+              conn.send({
+                type: 'handshake_ack',
+                user: { ...APP.myUser, isHost: APP.isHost }
+              });
+            } catch (e) {}
+            break;
+
+          case 'handshake_ack':
+            addOrUpdatePeer(peerId, data.user, conn);
+            break;
+
+          case 'room_peers':
+            if (Array.isArray(data.peers)) {
+              data.peers.forEach(otherId => {
+                if (otherId !== APP.myPeerId && !APP.peers.has(otherId)) {
+                  connectToPeer(otherId);
+                }
+              });
+            }
+            break;
+
+          case 'pos':
+            const posPeer = APP.peers.get(peerId);
+            if (posPeer) {
+              posPeer.targetX = data.x;
+              posPeer.targetZ = data.z;
+              posPeer.isSpeaking = data.isSpeaking;
+            }
+            break;
+
+          case 'chat':
+            addChatMessage(data);
+            const cp = APP.peers.get(peerId);
+            if (cp && cp.mesh) showSpeechBubble(cp.mesh, data.text, data.color || cp.color || '#6366f1');
+            break;
+
+          case 'emote':
+            const ep = APP.peers.get(peerId);
+            if (ep && ep.mesh) updateEmoteOnAvatar(ep.mesh, data.emote);
+            break;
+
+          case 'ping':
+            try { conn.send({ type: 'pong', t: data.t }); } catch (e) {}
+            break;
+
+          case 'pong':
+            const p = APP.peers.get(peerId);
+            if (p) {
+              p.ping = Math.max(1, Date.now() - (data.t || Date.now()));
+              updatePeersListUI();
+            }
+            break;
+        }
+      }
+
+      function startHeartbeat() {
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
+        heartbeatTimer = setInterval(() => {
+          if (!APP.peer || APP.peer.destroyed) return;
+          const now = Date.now();
+          APP.peers.forEach((p, pId) => {
+            if (p.dataConn && p.dataConn.open) {
+              try { p.dataConn.send({ type: 'ping', t: now }); } catch (e) {}
+            }
+          });
+        }, 2500);
+      }
+
+      function addOrUpdatePeer(peerId, userData, conn) {
+        let peer = APP.peers.get(peerId);
+        if (!peer) {
+          peer = createPeerRecord(peerId, (userData && userData.name) || 'Amigo', (userData && userData.color) || '#10b981', userData && userData.isHost);
+        } else if (userData) {
+          peer.name = userData.name || peer.name;
+          peer.color = userData.color || peer.color;
+          peer.isHost = !!userData.isHost;
+        }
+        if (conn) peer.dataConn = conn;
+
+        if (userData && userData.x !== undefined && userData.z !== undefined) {
+          peer.targetX = userData.x;
+          peer.targetZ = userData.z;
+          if (peer.mesh) {
+            peer.mesh.position.x = userData.x;
+            peer.mesh.position.z = userData.z;
+          }
+        }
+        updatePeersListUI();
+        updateNetworkStatus(true);
+      }
+
+      function createPeerRecord(peerId, name, color, isHost = false) {
+        const mesh = createAvatarMesh(color, name, isHost, 0);
+        mesh.position.set(0, 0, 2);
+        scene.add(mesh);
+
+        const record = {
+          id: peerId,
+          name: name,
+          color: color,
+          isHost: isHost,
+          mesh: mesh,
+          targetX: 0,
+          targetZ: 2,
+          isSpeaking: false,
+          ping: 0,
+          audioElem: null,
+          dataConn: null,
+          customVolume: 100
+        };
+        APP.peers.set(peerId, record);
+        updatePeersListUI();
+        return record;
+      }
+
+      function removePeer(peerId) {
+        const peer = APP.peers.get(peerId);
+        if (peer) {
+          if (peer.mesh) scene.remove(peer.mesh);
+          if (peer.audioElem) {
+            try { peer.audioElem.pause(); peer.audioElem.remove(); } catch (e) {}
+          }
+          APP.peers.delete(peerId);
+          updatePeersListUI();
+        }
+      }
+
+      function updatePeersListUI() {
+        const countEl = document.getElementById('hud-peer-count');
+        if (countEl) countEl.textContent = APP.peers.size + 1;
+
+        const container = document.getElementById('peers-list-content');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const myItem = document.createElement('div');
+        myItem.className = 'p-2 rounded-xl bg-slate-900 border border-slate-800 flex justify-between items-center';
+        myItem.innerHTML = `<span><b>${APP.myUser.name}</b> (Você)</span><span class="text-emerald-400">Online</span>`;
+        container.appendChild(myItem);
+
+        APP.peers.forEach(p => {
+          const item = document.createElement('div');
+          item.className = 'p-2 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between items-center';
+          item.innerHTML = `<span>${p.name} ${p.isHost ? '👑' : ''}</span><span class="text-indigo-400 font-mono">${p.ping || 15}ms</span>`;
+          container.appendChild(item);
+        });
+      }
+
+      function getGroundElevation(x, z) {
+        if (x >= -6.2 && x <= 6.2 && z >= 9.6 && z <= 16.6) return 0.65;
+        return 0;
+      }
+
+      function exitRoom() {
+        if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+        if (APP.localAudioStream) APP.localAudioStream.getTracks().forEach(t => t.stop());
+        if (APP.localScreenStream) APP.localScreenStream.getTracks().forEach(t => t.stop());
+        const tvAudio = document.getElementById('tv-stream-audio');
+        if (tvAudio) { tvAudio.pause(); tvAudio.srcObject = null; }
+        const discordFeatured = document.getElementById('discord-featured-screen');
+        if (discordFeatured) discordFeatured.classList.add('hidden');
+        if (APP.peer) APP.peer.destroy();
+        APP.peers.forEach(p => {
+          if (p.mesh) scene.remove(p.mesh);
+          if (p.audioElem) { p.audioElem.pause(); p.audioElem.remove(); }
+        });
+        APP.peers.clear();
+
+        currentPos.set(0, 0, 2);
+        targetPos.set(0, 0, 2);
+        if (myAvatarMesh) myAvatarMesh.position.set(0, 0, 2);
+
+        document.getElementById('lobby-modal').classList.remove('hidden', 'opacity-0');
+        showToast('🚪 Você saiu da sala e retornou ao saguão.', 'info');
+      }
+
+      function broadcastToPeers(payload) {
+        APP.peers.forEach(peerData => {
+          if (peerData.dataConn && peerData.dataConn.open) {
+            try { peerData.dataConn.send(payload); } catch (e) {}
+          }
+        });
+      }
+
+      function addOrUpdatePeer(peerId, userData, conn) {
+        let peer = APP.peers.get(peerId);
+        if (!peer) {
+          peer = createPeerRecord(peerId, userData.name || 'Amigo', userData.color || '#10b981', userData.isHost);
+        }
+        if (conn) peer.dataConn = conn;
+      }
+
+      function createPeerRecord(peerId, name, color, isHost = false) {
+        const mesh = createAvatarMesh(color, name, isHost, 0);
+        mesh.position.set(0, 0, 0);
+        scene.add(mesh);
+
+        const record = {
+          id: peerId,
+          name: name,
+          color: color,
+          isHost: isHost,
+          mesh: mesh,
+          targetX: 0,
+          targetZ: 0,
+          isSpeaking: false,
+          ping: 0,
+          audioElem: null,
+          dataConn: null,
+          customVolume: 100
+        };
+        APP.peers.set(peerId, record);
+        updatePeersListUI();
+        return record;
+      }
+
+      function removePeer(peerId) {
+        const peer = APP.peers.get(peerId);
+        if (peer) {
+          if (peer.mesh) scene.remove(peer.mesh);
+          APP.peers.delete(peerId);
+          updatePeersListUI();
+        }
+      }
+
+      function updatePeersListUI() {
+        const countEl = document.getElementById('hud-peer-count');
+        if (countEl) countEl.textContent = APP.peers.size + 1;
+
+        const container = document.getElementById('peers-list-content');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const myItem = document.createElement('div');
+        myItem.className = 'p-2 rounded-xl bg-slate-900 border border-slate-800 flex justify-between items-center';
+        myItem.innerHTML = `<span><b>${APP.myUser.name}</b> (Você)</span><span class="text-emerald-400">Online</span>`;
+        container.appendChild(myItem);
+
+        APP.peers.forEach(p => {
+          const item = document.createElement('div');
+          item.className = 'p-2 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between items-center';
+          item.innerHTML = `<span>${p.name}</span><span class="text-indigo-400 font-mono">${p.ping}ms</span>`;
+          container.appendChild(item);
+        });
+      }
+
+      function toggleSpatialAudio() {
+        APP.useSpatialAudio = !APP.useSpatialAudio;
+        updateSpatialAudioUI(APP.useSpatialAudio);
+      }
+
+      function updateSpatialAudioUI(isSpatialOn) {
+        const btn = document.getElementById('btn-toggle-spatial');
+        const iconOn = document.getElementById('icon-spatial-on');
+        const iconOff = document.getElementById('icon-spatial-off');
+        const dot = document.getElementById('spatial-status-dot');
+
+        if (isSpatialOn) {
+          if (btn) {
+            btn.className = 'relative flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl sm:rounded-2xl bg-indigo-600 text-white font-bold transition shadow-lg shadow-indigo-600/30 border border-indigo-400/40 active:scale-95 group';
+            btn.title = 'Modo de Áudio: Ligado = 3D Espacial (Volume varia com a distância)';
+          }
+          if (iconOn) iconOn.classList.remove('hidden');
+          if (iconOff) iconOff.classList.add('hidden');
+          if (dot) dot.className = 'absolute -bottom-1 -right-1 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-indigo-400 rounded-full border-2 border-slate-900 shadow animate-pulse';
+          showToast('🎧 Áudio 3D Espacial Ligado (Proximidade)', 'info');
+        } else {
+          if (btn) {
+            btn.className = 'relative flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl sm:rounded-2xl bg-slate-800 text-slate-400 hover:text-white font-bold transition border border-slate-700 active:scale-95 group';
+            btn.title = 'Modo de Áudio: Desligado = Global (Todos ouvem com mesmo volume)';
+          }
+          if (iconOn) iconOn.classList.add('hidden');
+          if (iconOff) iconOff.classList.remove('hidden');
+          if (dot) dot.className = 'absolute -bottom-1 -right-1 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-slate-500 rounded-full border-2 border-slate-900 shadow';
+          showToast('🔊 Áudio Global Ligado (Sala toda com volume constante)', 'info');
+        }
+      }
+
+      function applyHologramData(dataUrl) {
+        APP.myUser.hologramUrl = dataUrl;
+        if (myAvatarMesh) {
+          setAvatarHologram(myAvatarMesh, dataUrl);
+        }
+        updateLobbyAvatarPreview(dataUrl);
+        saveUserProfile();
+        broadcastToPeers({ type: 'hologram', url: dataUrl });
+      }
+
+      function setupUIEventListeners() {
+        const btnZoomIn = document.getElementById('btn-zoom-in');
+        const btnZoomOut = document.getElementById('btn-zoom-out');
+        const btnZoomReset = document.getElementById('btn-zoom-reset');
+
+        if (btnZoomIn) btnZoomIn.addEventListener('click', () => setCameraZoom(cameraZoomLevel - 2));
+        if (btnZoomOut) btnZoomOut.addEventListener('click', () => setCameraZoom(cameraZoomLevel + 2));
+        if (btnZoomReset) btnZoomReset.addEventListener('click', () => setCameraZoom(16));
+
+        // Botão Vermelho de Sair
+        const hangupBtn = document.getElementById('btn-hangup-exit');
+        if (hangupBtn) {
+          hangupBtn.addEventListener('click', () => {
+            exitRoom();
+          });
+        }
+
+        // Radar e Sala Universal
+        const enterUniversalBtn = document.getElementById('btn-enter-universal-room');
+        if (enterUniversalBtn) {
+          enterUniversalBtn.addEventListener('click', () => {
+            const username = document.getElementById('input-username').value.trim() || 'Viajante';
+            APP.myUser.name = username;
+            closeLobbyAndStart('crateradojota', true);
+          });
+        }
+
+        const quickJoinBtn = document.getElementById('btn-quick-join');
+        if (quickJoinBtn) quickJoinBtn.addEventListener('click', performQuickJoin);
+
+        const rescanBtn = document.getElementById('btn-rescan-radar');
+        if (rescanBtn) rescanBtn.addEventListener('click', scanPublicRoomsRadar);
+
+        // Color Picker
+        const colorBtns = document.querySelectorAll('.avatar-color-btn');
+        colorBtns.forEach(btn => {
+          btn.addEventListener('click', () => {
+            colorBtns.forEach(b => {
+              b.classList.remove('border-white', 'scale-110');
+              b.classList.add('border-transparent');
+            });
+            btn.classList.add('border-white', 'scale-110');
+            btn.classList.remove('border-transparent');
+            APP.myUser.color = btn.getAttribute('data-color') || '#6366f1';
+            updateLobbyAvatarPreview(APP.myUser.hologramUrl, APP.myUser.name);
+            saveUserProfile();
+            if (myAvatarMesh) createLocalAvatar();
+          });
+        });
+
+        // Nome
+        const inputUser = document.getElementById('input-username');
+        if (inputUser) {
+          inputUser.addEventListener('input', (e) => {
+            APP.myUser.name = e.target.value.trim() || 'Viajante';
+            updateLobbyAvatarPreview(APP.myUser.hologramUrl, APP.myUser.name);
+            saveUserProfile();
+          });
+        }
+
+        // Upload de foto no Lobby
+        const fileInp = document.getElementById('input-lobby-photo-file');
+        const uploadBtn = document.getElementById('btn-lobby-upload-photo');
+        const avatarTrigger = document.getElementById('btn-lobby-avatar-trigger');
+        const removePhotoBtn = document.getElementById('btn-lobby-remove-photo');
+        const stickerBtn = document.getElementById('btn-lobby-choose-sticker');
+
+        if (uploadBtn && fileInp) uploadBtn.addEventListener('click', () => fileInp.click());
+        if (avatarTrigger && fileInp) avatarTrigger.addEventListener('click', () => fileInp.click());
+        if (stickerBtn) {
+          stickerBtn.addEventListener('click', () => {
+            const modalHolo = document.getElementById('modal-hologram');
+            if (modalHolo) modalHolo.classList.remove('hidden');
+          });
+        }
+
+        if (fileInp) {
+          fileInp.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              applyHologramData(ev.target.result);
+              showToast('Foto do perfil atualizada!', 'success');
+            };
+            reader.readAsDataURL(file);
+          });
+        }
+
+        if (removePhotoBtn) {
+          removePhotoBtn.addEventListener('click', () => {
+            applyHologramData('');
+            showToast('Foto removida', 'info');
+          });
+        }
+
+        document.getElementById('btn-toggle-spatial').addEventListener('click', toggleSpatialAudio);
+        updateSpatialAudioUI(APP.useSpatialAudio);
+
+        document.getElementById('tab-create-btn').addEventListener('click', () => {
+          document.getElementById('section-create').classList.remove('hidden');
+          document.getElementById('section-join').classList.add('hidden');
+        });
+        document.getElementById('tab-join-btn').addEventListener('click', () => {
+          document.getElementById('section-join').classList.remove('hidden');
+          document.getElementById('section-create').classList.add('hidden');
+        });
+
+        document.getElementById('btn-create-room').addEventListener('click', () => {
+          const username = document.getElementById('input-username').value.trim() || 'Viajante';
+          APP.myUser.name = username;
+          const code = document.getElementById('input-create-room-code').value.trim() || 'sala-1';
+          closeLobbyAndStart(code, true);
+        });
+
+        document.getElementById('btn-join-room').addEventListener('click', () => {
+          const username = document.getElementById('input-username').value.trim() || 'Viajante';
+          APP.myUser.name = username;
+          const code = document.getElementById('input-room-code').value.trim();
+          if (code) {
+            closeLobbyAndStart(code, false);
+          } else {
+            showToast('Digite o código da sala.', 'warning');
+          }
+        });
+
+        document.getElementById('btn-solo-demo').addEventListener('click', () => {
+          const username = document.getElementById('input-username').value.trim() || 'Viajante';
+          APP.myUser.name = username;
+          closeLobbyAndStart('demo-solo', true);
+        });
+
+        document.getElementById('btn-toggle-view-mode').addEventListener('click', () => {
+          setViewMode(APP.viewMode === '3d' ? '2d' : '3d');
+        });
+
+        document.getElementById('btn-toggle-mic').addEventListener('click', toggleMic);
+        document.getElementById('btn-toggle-webcam').addEventListener('click', toggleWebcam);
+        document.getElementById('btn-toggle-screenshare').addEventListener('click', toggleScreenShare);
+        document.getElementById('btn-banner-screenshare').addEventListener('click', toggleScreenShare);
+        document.getElementById('btn-hud-fullscreen').addEventListener('click', openCinemaFullscreen);
+        document.getElementById('btn-banner-fullscreen').addEventListener('click', openCinemaFullscreen);
+        document.getElementById('btn-close-cinema').addEventListener('click', closeCinemaFullscreen);
+        document.getElementById('btn-cinema-native-fullscreen').addEventListener('click', toggleNativeFullscreen);
+
+        document.getElementById('btn-toggle-chat').addEventListener('click', () => {
+          document.getElementById('side-chat-panel').classList.toggle('opacity-0');
+          document.getElementById('side-chat-panel').classList.toggle('pointer-events-none');
+        });
+        document.getElementById('btn-close-chat').addEventListener('click', () => {
+          document.getElementById('side-chat-panel').classList.add('opacity-0', 'pointer-events-none');
+        });
+
+        document.getElementById('form-chat').addEventListener('submit', (e) => {
+          e.preventDefault();
+          const inp = document.getElementById('input-chat-message');
+          sendChatMessage(inp.value);
+          inp.value = '';
+        });
+
+        document.getElementById('btn-toggle-peers').addEventListener('click', () => {
+          document.getElementById('side-peers-panel').classList.toggle('opacity-0');
+          document.getElementById('side-peers-panel').classList.toggle('pointer-events-none');
+        });
+        document.getElementById('btn-close-peers').addEventListener('click', () => {
+          document.getElementById('side-peers-panel').classList.add('opacity-0', 'pointer-events-none');
+        });
+
+        document.getElementById('btn-toggle-settings').addEventListener('click', () => {
+          populateAudioDevices(true);
+          document.getElementById('modal-settings').classList.remove('hidden');
+        });
+        document.getElementById('btn-close-settings').addEventListener('click', () => {
+          document.getElementById('modal-settings').classList.add('hidden');
+        });
+
+        document.getElementById('btn-toggle-hologram').addEventListener('click', () => {
+          document.getElementById('modal-hologram').classList.remove('hidden');
+        });
+        document.getElementById('btn-close-hologram').addEventListener('click', () => {
+          document.getElementById('modal-hologram').classList.add('hidden');
+        });
+
+        document.querySelectorAll('.preset-hologram-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.font = '84px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(btn.getAttribute('data-emoji'), 64, 64);
+            applyHologramData(canvas.toDataURL('image/png'));
+            document.getElementById('modal-hologram').classList.add('hidden');
+          });
+        });
+
+        document.querySelectorAll('.emote-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const emote = btn.getAttribute('data-emote');
+            if (myAvatarMesh) updateEmoteOnAvatar(myAvatarMesh, emote);
+            broadcastToPeers({ type: 'emote', emote: emote });
+          });
+        });
+
+        // Detecção e seleção de dispositivos de áudio
+        const btnDetectLobby = document.getElementById('btn-detect-audio-lobby');
+        if (btnDetectLobby) {
+          btnDetectLobby.addEventListener('click', () => {
+            populateAudioDevices(true);
+            showToast('Buscando microfones e alto-falantes...', 'info');
+          });
+        }
+
+        const btnRefreshModal = document.getElementById('btn-refresh-audio-devices');
+        if (btnRefreshModal) {
+          btnRefreshModal.addEventListener('click', () => {
+            populateAudioDevices(true);
+            showToast('Dispositivos atualizados!', 'info');
+          });
+        }
+
+        const btnTestAudio = document.getElementById('btn-test-audio-output');
+        if (btnTestAudio) {
+          btnTestAudio.addEventListener('click', testSoundChime);
+        }
+
+        const handleAudioInputChange = (e) => {
+          APP.selectedAudioInputId = e.target.value;
+          const otherSelectId = e.target.id === 'select-audio-input' ? 'modal-select-audio-input' : 'select-audio-input';
+          const otherSelect = document.getElementById(otherSelectId);
+          if (otherSelect) otherSelect.value = e.target.value;
+          if (APP.localAudioStream) {
+            setupLocalMicrophone(e.target.value);
+          }
+        };
+
+        const selectLobbyIn = document.getElementById('select-audio-input');
+        if (selectLobbyIn) selectLobbyIn.addEventListener('change', handleAudioInputChange);
+        const selectModalIn = document.getElementById('modal-select-audio-input');
+        if (selectModalIn) selectModalIn.addEventListener('change', handleAudioInputChange);
+
+        const handleAudioOutputChange = async (e) => {
+          APP.selectedAudioOutputId = e.target.value;
+          const otherSelectId = e.target.id === 'select-audio-output' ? 'modal-select-audio-output' : 'select-audio-output';
+          const otherSelect = document.getElementById(otherSelectId);
+          if (otherSelect) otherSelect.value = e.target.value;
+
+          if (e.target.value) {
+            const elements = document.querySelectorAll('audio, video');
+            for (let el of elements) {
+              if (typeof el.setSinkId === 'function') {
+                try { await el.setSinkId(e.target.value); } catch (err) {}
+              }
+            }
+          }
+        };
+
+        const selectLobbyOut = document.getElementById('select-audio-output');
+        if (selectLobbyOut) selectLobbyOut.addEventListener('change', handleAudioOutputChange);
+        const selectModalOut = document.getElementById('modal-select-audio-output');
+        if (selectModalOut) selectModalOut.addEventListener('change', handleAudioOutputChange);
+
+        // Desbloqueio global de áudio no primeiro toque/clique (essencial em smartphones e Autoplay Policy)
+        function unlockAllMediaAudio() {
+          if (APP.audioContext && APP.audioContext.state === 'suspended') {
+            APP.audioContext.resume().catch(() => {});
+          }
+          const tvAudio = document.getElementById('tv-stream-audio');
+          if (tvAudio && tvAudio.srcObject && tvAudio.paused) {
+            tvAudio.play().catch(() => {});
+          }
+          APP.peers.forEach(p => {
+            if (p.audioElem && p.audioElem.paused) {
+              p.audioElem.play().catch(() => {});
+            }
+          });
+        }
+        window.addEventListener('click', unlockAllMediaAudio);
+        window.addEventListener('touchstart', unlockAllMediaAudio, { passive: true });
+        window.addEventListener('pointerdown', unlockAllMediaAudio);
+
+        // Alerta de contexto seguro para smartphones em rede local (HTTP)
+        const isSecure = window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        const warnBanner = document.getElementById('lobby-secure-warning');
+        if (warnBanner && !isSecure && location.protocol !== 'https:') {
+          warnBanner.classList.remove('hidden');
+        }
+
+        initRadarRoomsUI();
+        scanPublicRoomsRadar();
+        renderCachedRoomsUI();
+        loadSavedUserProfile();
+        populateAudioDevices();
+      }
+
+      function closeLobbyAndStart(roomId, isHost) {
+        const lobby = document.getElementById('lobby-modal');
+        if (lobby) lobby.classList.add('hidden');
+
+        saveUserProfile();
+        createLocalAvatar();
+        setupLocalMicrophone();
+        initP2PRoom(roomId, isHost);
+
+        currentPos.set(0, 0, 2);
+        targetPos.set(0, 0, 2);
+        if (myAvatarMesh) {
+          myAvatarMesh.position.set(0, 0, 2);
+        }
+      }
+
+      window.addEventListener('load', () => {
+        initThree();
+        setupUIEventListeners();
+      });
+
+    })();
+  </script>
+</body>
+</html>
