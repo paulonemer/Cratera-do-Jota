@@ -292,17 +292,17 @@
   </div>
 
   <!-- HUD SUPERIOR -->
-  <header class="fixed top-3 left-3 right-3 z-30 flex items-center justify-between pointer-events-none">
-    <div class="glass-panel rounded-2xl px-3.5 py-2 flex items-center gap-2.5 pointer-events-auto shadow-lg">
-      <div class="flex items-center gap-2">
-        <span id="hud-connection-ping" class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
-        <span id="hud-connection-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-400 -ml-4.5"></span>
-        <span id="hud-room-title" class="font-bold text-xs sm:text-sm text-white tracking-wide">Sala: Carregando...</span>
-        <span id="hud-admin-badge" class="hidden text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">👑 HOST</span>
-        <span id="hud-status-text" class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Conectado (1)</span>
+  <header class="fixed top-2 sm:top-3 left-2 sm:left-3 right-2 sm:right-3 z-30 flex items-center justify-between pointer-events-none gap-1 sm:gap-2">
+    <div class="glass-panel rounded-xl sm:rounded-2xl px-2.5 sm:px-3.5 py-1.5 sm:py-2 flex items-center gap-2 pointer-events-auto shadow-lg shrink min-w-0">
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink min-w-0">
+        <span id="hud-connection-ping" class="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0"></span>
+        <span id="hud-connection-dot" class="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-400 -ml-3.5 sm:-ml-4.5 shrink-0"></span>
+        <span id="hud-room-title" class="font-bold text-[11px] sm:text-sm text-white tracking-wide truncate max-w-[90px] sm:max-w-none">Sala: Carregando...</span>
+        <span id="hud-admin-badge" class="hidden text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold shrink-0">👑 HOST</span>
+        <span id="hud-status-text" class="hidden sm:inline-block text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Conectado (1)</span>
       </div>
       
-      <div class="h-4 w-px bg-slate-700 hidden sm:block"></div>
+      <div class="h-4 w-px bg-slate-700 hidden md:block"></div>
 
       <div id="hud-zone-badge" class="hidden md:flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-indigo-500/20 text-indigo-300 text-xs font-medium border border-indigo-500/30">
         <span id="hud-zone-icon">🛋️</span>
@@ -311,177 +311,177 @@
     </div>
 
     <!-- Botões Superiores com Controles de Zoom -->
-    <div class="flex items-center gap-1.5 sm:gap-2 pointer-events-auto">
+    <div class="flex items-center gap-1 sm:gap-2 pointer-events-auto shrink-0">
       <!-- Controles de Zoom da Câmera -->
-      <div class="flex items-center glass-panel rounded-xl p-0.5 border border-slate-700/60 shadow-lg">
-        <button id="btn-zoom-in" type="button" title="Aproximar Câmera (+)" class="w-8 h-8 rounded-lg hover:bg-slate-800 text-slate-200 flex items-center justify-center transition active:scale-90 font-bold">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+      <div class="flex items-center glass-panel rounded-lg sm:rounded-xl p-0.5 border border-slate-700/60 shadow-lg">
+        <button id="btn-zoom-in" type="button" title="Aproximar Câmera (+)" class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg hover:bg-slate-800 text-slate-200 flex items-center justify-center transition active:scale-90 font-bold">
+          <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
         </button>
-        <button id="btn-zoom-reset" type="button" title="Redefinir Zoom" class="px-1.5 text-[10px] font-mono text-indigo-300 hover:text-white">100%</button>
-        <button id="btn-zoom-out" type="button" title="Afastar Câmera (-)" class="w-8 h-8 rounded-lg hover:bg-slate-800 text-slate-200 flex items-center justify-center transition active:scale-90 font-bold">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20 12H4"/></svg>
+        <button id="btn-zoom-reset" type="button" title="Redefinir Zoom" class="px-1 text-[9px] sm:text-[10px] font-mono text-indigo-300 hover:text-white">100%</button>
+        <button id="btn-zoom-out" type="button" title="Afastar Câmera (-)" class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg hover:bg-slate-800 text-slate-200 flex items-center justify-center transition active:scale-90 font-bold">
+          <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20 12H4"/></svg>
         </button>
       </div>
 
       <button id="btn-toggle-view-mode" type="button" title="Alternar entre Sala 3D Virtual e Modo Grade Discord (2D)"
-              class="glass-panel hover:bg-slate-800 text-white px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-lg border border-indigo-500/40 bg-indigo-950/40">
-        <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+              class="glass-panel hover:bg-slate-800 text-white p-1.5 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-lg border border-indigo-500/40 bg-indigo-950/40">
+        <svg class="w-4 h-4 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
         <span id="view-mode-text" class="hidden sm:inline">Modo Discord</span>
       </button>
 
       <button id="btn-toggle-settings" type="button" title="Configurações de Áudio (Microfone e Alto-falante)"
-              class="glass-panel hover:bg-slate-800 text-slate-300 hover:text-white px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1 transition active:scale-95 shadow-lg border border-slate-700/60">
-        <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              class="glass-panel hover:bg-slate-800 text-slate-300 hover:text-white p-1.5 sm:px-2.5 sm:py-2 rounded-lg sm:rounded-xl text-xs font-semibold flex items-center gap-1 transition active:scale-95 shadow-lg border border-slate-700/60">
+        <svg class="w-4 h-4 text-slate-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
       </button>
 
       <button id="btn-share-room" type="button" title="Copiar Link para Convidar Amigos"
-              class="glass-panel hover:bg-slate-800 text-white px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-lg border border-slate-700/60">
-        <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+              class="glass-panel hover:bg-slate-800 text-white p-1.5 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-lg border border-slate-700/60">
+        <svg class="w-4 h-4 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
         <span class="hidden lg:inline">Convidar</span>
       </button>
 
       <button id="btn-toggle-peers" type="button" title="Pessoas na Sala, Pings & Controles de Volume"
-              class="glass-panel hover:bg-slate-800 text-white px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-lg border border-slate-700/60">
-        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-        <span id="hud-peer-count" class="font-mono text-emerald-400">1</span>
+              class="glass-panel hover:bg-slate-800 text-white p-1.5 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-lg border border-slate-700/60">
+        <svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        <span id="hud-peer-count" class="font-mono text-emerald-400 text-xs">1</span>
       </button>
 
       <button id="btn-toggle-help" type="button" title="Guia de Controles"
-              class="glass-panel hover:bg-slate-800 text-slate-300 hover:text-white p-2 rounded-xl text-xs transition active:scale-95 shadow-lg border border-slate-700/60">
+              class="glass-panel hover:bg-slate-800 text-slate-300 hover:text-white p-1.5 sm:p-2 rounded-lg sm:rounded-xl text-xs transition active:scale-95 shadow-lg border border-slate-700/60 hidden sm:block">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
       </button>
     </div>
   </header>
 
   <!-- BANNER INTERATIVO DE ZONA -->
-  <div id="zone-action-banner" class="fixed top-20 left-1/2 -translate-x-1/2 z-30 transition-all duration-300 transform -translate-y-4 opacity-0 pointer-events-none max-w-lg w-full px-4">
-    <div class="glass-panel-accent rounded-2xl p-4 flex items-center justify-between border border-indigo-400/40 shadow-2xl">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-indigo-600/30 border border-indigo-400/40 flex items-center justify-center text-indigo-300 text-xl">
+  <div id="zone-action-banner" class="fixed top-14 sm:top-20 left-1/2 -translate-x-1/2 z-30 transition-all duration-300 transform -translate-y-4 opacity-0 pointer-events-none max-w-lg w-full px-3 sm:px-4">
+    <div class="glass-panel-accent rounded-2xl p-3 sm:p-4 flex items-center justify-between border border-indigo-400/40 shadow-2xl gap-2">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-indigo-600/30 border border-indigo-400/40 flex items-center justify-center text-indigo-300 text-lg sm:text-xl shrink-0">
           📺
         </div>
-        <div>
-          <div class="font-bold text-sm text-white flex items-center gap-1.5">
-            Sala de Cinema & TV
-            <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30 font-normal">Interativo</span>
+        <div class="truncate">
+          <div class="font-bold text-xs sm:text-sm text-white flex items-center gap-1.5">
+            <span class="truncate">Cinema & TV</span>
+            <span class="text-[9px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded-full border border-indigo-500/30 font-normal shrink-0">Interativo</span>
           </div>
-          <div id="zone-tv-status-text" class="text-xs text-slate-300">Transmita sua tela ou assista em tela cheia!</div>
+          <div id="zone-tv-status-text" class="text-[10px] sm:text-xs text-slate-300 truncate">Transmita sua tela ou assista!</div>
         </div>
       </div>
-      <div class="flex items-center gap-2">
-        <button id="btn-banner-fullscreen" type="button" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-600 shadow-md transition pointer-events-auto active:scale-95 flex items-center gap-1.5">
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <button id="btn-banner-fullscreen" type="button" class="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-[11px] sm:text-xs font-bold border border-slate-600 shadow-md transition pointer-events-auto active:scale-95 flex items-center gap-1">
           Tela Cheia
         </button>
-        <button id="btn-banner-screenshare" type="button" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md transition pointer-events-auto active:scale-95 flex items-center gap-1.5">
+        <button id="btn-banner-screenshare" type="button" class="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[11px] sm:text-xs font-bold shadow-md transition pointer-events-auto active:scale-95 flex items-center gap-1">
           Transmitir
         </button>
       </div>
     </div>
   </div>
 
-  <!-- HUD INFERIOR / BARRA DE CONTROLES DO JOGADOR -->
-  <div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2 pointer-events-none w-full max-w-xl px-4">
+  <!-- HUD INFERIOR / BARRA DE CONTROLES DO JOGADOR (RESPONSIVO COM SCROLL HORIZONTAL EM TELAS MUITO PEQUENAS) -->
+  <div class="fixed bottom-2 sm:bottom-4 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1.5 sm:gap-2 pointer-events-none w-full max-w-xl px-2 sm:px-4">
     
     <!-- Barra Rápida de Emotes / Reações 3D -->
-    <div class="glass-panel rounded-full px-3 py-1 flex items-center gap-1 sm:gap-2 pointer-events-auto shadow-xl border border-slate-700/60 mb-0.5">
-      <span class="text-[11px] text-slate-400 font-semibold px-1">Reagir:</span>
-      <button type="button" data-emote="👋" class="emote-btn hover:scale-125 transition text-base p-1 active:scale-90">👋</button>
-      <button type="button" data-emote="❤️" class="emote-btn hover:scale-125 transition text-base p-1 active:scale-90">❤️</button>
-      <button type="button" data-emote="😂" class="emote-btn hover:scale-125 transition text-base p-1 active:scale-90">😂</button>
-      <button type="button" data-emote="🔥" class="emote-btn hover:scale-125 transition text-base p-1 active:scale-90">🔥</button>
-      <button type="button" data-emote="🍿" class="emote-btn hover:scale-125 transition text-base p-1 active:scale-90">🍿</button>
-      <button type="button" data-emote="☕" class="emote-btn hover:scale-125 transition text-base p-1 active:scale-90">☕</button>
+    <div class="glass-panel rounded-full px-2.5 py-0.5 sm:py-1 flex items-center gap-1 sm:gap-2 pointer-events-auto shadow-xl border border-slate-700/60 mb-0.5">
+      <span class="text-[10px] sm:text-[11px] text-slate-400 font-semibold px-1 hidden xs:inline">Reagir:</span>
+      <button type="button" data-emote="👋" class="emote-btn hover:scale-125 transition text-sm sm:text-base p-1 active:scale-90">👋</button>
+      <button type="button" data-emote="❤️" class="emote-btn hover:scale-125 transition text-sm sm:text-base p-1 active:scale-90">❤️</button>
+      <button type="button" data-emote="😂" class="emote-btn hover:scale-125 transition text-sm sm:text-base p-1 active:scale-90">😂</button>
+      <button type="button" data-emote="🔥" class="emote-btn hover:scale-125 transition text-sm sm:text-base p-1 active:scale-90">🔥</button>
+      <button type="button" data-emote="🍿" class="emote-btn hover:scale-125 transition text-sm sm:text-base p-1 active:scale-90">🍿</button>
+      <button type="button" data-emote="☕" class="emote-btn hover:scale-125 transition text-sm sm:text-base p-1 active:scale-90">☕</button>
     </div>
 
     <!-- Barra Principal -->
-    <div class="glass-panel-accent rounded-3xl p-2 sm:p-2.5 flex items-center gap-1.5 sm:gap-2.5 pointer-events-auto shadow-2xl border border-slate-700/80">
+    <div class="glass-panel-accent rounded-2xl sm:rounded-3xl p-1.5 sm:p-2.5 flex items-center gap-1 sm:gap-2 pointer-events-auto shadow-2xl border border-slate-700/80 max-w-full overflow-x-auto no-scrollbar">
       
       <!-- Microfone com Feedback Visual -->
       <button id="btn-toggle-mic" type="button" title="Ativar/Desativar Microfone (Espaço)"
-              class="relative flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition shadow-lg shadow-indigo-600/30 active:scale-95 group">
+              class="relative flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl sm:rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition shadow-lg shadow-indigo-600/30 active:scale-95 group">
         <!-- SVG Microfone Ativo -->
-        <svg id="icon-mic-on" class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg id="icon-mic-on" class="w-4 h-4 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"/>
         </svg>
         <!-- SVG Microfone Mudo -->
-        <svg id="icon-mic-off" class="w-5 h-5 sm:w-6 sm:h-6 hidden text-rose-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg id="icon-mic-off" class="w-4 h-4 sm:w-6 sm:h-6 hidden text-rose-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/>
         </svg>
-        <span id="mic-speaking-indicator" class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 rounded-full border-2 border-slate-900 hidden animate-ping"></span>
+        <span id="mic-speaking-indicator" class="absolute -top-1 -right-1 w-3 h-3 sm:w-3.5 sm:h-3.5 bg-emerald-400 rounded-full border-2 border-slate-900 hidden animate-ping"></span>
       </button>
 
       <!-- WebCam com SVG -->
       <button id="btn-toggle-webcam" type="button" title="Ligar/Desligar sua Câmera WebCam"
-              class="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700 active:scale-95">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl sm:rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700 active:scale-95">
+        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
         </svg>
       </button>
 
-      <!-- Compartilhar Tela com SVG -->
+      <!-- Compartilhar Tela com SVG (Responsivo: ícone com texto em telas maiores) -->
       <button id="btn-toggle-screenshare" type="button" title="Transmitir Tela na Sala"
-              class="flex items-center gap-1.5 px-3 sm:px-4 h-11 sm:h-12 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-semibold text-xs transition border border-slate-700 active:scale-95">
-        <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              class="flex items-center justify-center gap-1.5 px-2.5 sm:px-4 h-10 sm:h-12 shrink-0 rounded-xl sm:rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-semibold text-xs transition border border-slate-700 active:scale-95">
+        <svg class="w-4 h-4 sm:w-5 sm:h-5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
         </svg>
-        <span id="text-screenshare">Transmitir Tela</span>
+        <span id="text-screenshare" class="hidden sm:inline">Transmitir</span>
       </button>
 
       <!-- Holograma / Foto com SVG Câmera -->
       <button id="btn-toggle-hologram" type="button" title="Foto de Perfil ou Figurinha 3D acima do avatar"
-              class="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-amber-200 transition border border-slate-700 active:scale-95">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl sm:rounded-2xl bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-amber-200 transition border border-slate-700 active:scale-95">
+        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
         </svg>
       </button>
 
       <!-- Tela Cheia / Cinema com SVG Expandir -->
       <button id="btn-hud-fullscreen" type="button" title="Abrir Modo Cinema / Tela Cheia da TV"
-              class="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700 active:scale-95">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl sm:rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700 active:scale-95">
+        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
         </svg>
       </button>
 
-      <!-- Áudio 3D Espacial vs Global (Com Estilo Ligado/Desligado Idêntico ao Microfone) -->
+      <!-- Áudio 3D Espacial vs Global -->
       <button id="btn-toggle-spatial" type="button" title="Modo de Áudio: Ligado = 3D Espacial por Proximidade | Desligado = Som Global na Sala Toda"
-              class="relative flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-indigo-600 text-white font-bold transition shadow-lg shadow-indigo-600/30 border border-indigo-400/40 active:scale-95 group">
+              class="relative flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl sm:rounded-2xl bg-indigo-600 text-white font-bold transition shadow-lg shadow-indigo-600/30 border border-indigo-400/40 active:scale-95 group">
         <!-- Ícone Fone 3D Ativo (Ligado) -->
-        <svg id="icon-spatial-on" class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg id="icon-spatial-on" class="w-4 h-4 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12 0c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
         </svg>
         <!-- Ícone Alto-Falante Global (Desligado) -->
-        <svg id="icon-spatial-off" class="w-5 h-5 sm:w-6 sm:h-6 hidden text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg id="icon-spatial-off" class="w-4 h-4 sm:w-6 sm:h-6 hidden text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
         </svg>
-        <span id="spatial-status-dot" class="absolute -bottom-1 -right-1 w-3 h-3 bg-indigo-400 rounded-full border-2 border-slate-900 shadow"></span>
+        <span id="spatial-status-dot" class="absolute -bottom-1 -right-1 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-indigo-400 rounded-full border-2 border-slate-900 shadow"></span>
       </button>
 
       <!-- Chat com SVG -->
       <button id="btn-toggle-chat" type="button" title="Abrir Chat de Texto"
-              class="relative flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700 active:scale-95">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              class="relative flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl sm:rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700 active:scale-95">
+        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
         </svg>
-        <span id="chat-unread-dot" class="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-indigo-500 rounded-full hidden"></span>
+        <span id="chat-unread-dot" class="absolute top-2 right-2 w-2 h-2 bg-indigo-500 rounded-full hidden"></span>
       </button>
 
       <!-- Bot Companion Demo com SVG -->
       <button id="btn-add-companion-bot" type="button" title="Adicionar Amigo Robô para testar voz/sala"
-              class="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 transition border border-amber-500/40 active:scale-95">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl sm:rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 transition border border-amber-500/40 active:scale-95">
+        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
         </svg>
       </button>
     </div>
 
     <!-- Dica de Movimento -->
-    <div id="tip-movement-container" class="text-[11px] text-slate-400 font-medium bg-slate-950/60 px-3 py-1 rounded-full border border-slate-800/80 pointer-events-auto flex items-center gap-2">
+    <div id="tip-movement-container" class="hidden sm:flex text-[11px] text-slate-400 font-medium bg-slate-950/60 px-3 py-1 rounded-full border border-slate-800/80 pointer-events-auto items-center gap-2">
       <span>🕹️ Use <kbd class="px-1.5 py-0.5 bg-slate-800 rounded text-slate-200 font-mono text-[10px]">W A S D</kbd> ou toque no chão para andar</span>
     </div>
   </div>
 
-  <!-- OVERLAY DE CINEMA EM TELA CHEIA -->
+  <!-- OVERLAY / MODAL DE CINEMA EM TELA CHEIA -->
   <div id="modal-cinema-fullscreen" class="fixed inset-0 z-50 bg-slate-950/98 backdrop-blur-2xl flex flex-col hidden transition-all duration-300">
     <div class="px-5 py-3 flex items-center justify-between border-b border-slate-800/80 glass-panel">
       <div class="flex items-center gap-3">
@@ -777,17 +777,6 @@
         </button>
       </div>
     </div>
-  </div>
-
-  <!-- CONTROLE TOUCH D-PAD PARA SMARTPHONES -->
-  <div id="mobile-dpad-container" class="fixed bottom-24 left-3 z-30 flex flex-col items-center gap-1 pointer-events-auto sm:hidden select-none opacity-85 hover:opacity-100 transition-opacity">
-    <button id="btn-dpad-up" type="button" class="w-10 h-10 rounded-xl bg-slate-900/80 border border-indigo-500/40 text-white flex items-center justify-center font-bold active:bg-indigo-600 active:scale-95 shadow-lg">⬆️</button>
-    <div class="flex items-center gap-2">
-      <button id="btn-dpad-left" type="button" class="w-10 h-10 rounded-xl bg-slate-900/80 border border-indigo-500/40 text-white flex items-center justify-center font-bold active:bg-indigo-600 active:scale-95 shadow-lg">⬅️</button>
-      <div class="w-7 h-7 rounded-full bg-indigo-500/20 border border-indigo-400/40 flex items-center justify-center text-[10px] text-indigo-300 font-mono">🕹️</div>
-      <button id="btn-dpad-right" type="button" class="w-10 h-10 rounded-xl bg-slate-900/80 border border-indigo-500/40 text-white flex items-center justify-center font-bold active:bg-indigo-600 active:scale-95 shadow-lg">➡️</button>
-    </div>
-    <button id="btn-dpad-down" type="button" class="w-10 h-10 rounded-xl bg-slate-900/80 border border-indigo-500/40 text-white flex items-center justify-center font-bold active:bg-indigo-600 active:scale-95 shadow-lg">⬇️</button>
   </div>
 
   <!-- SCRIPT COMPLETO E FUNCIONAL -->
@@ -2238,8 +2227,38 @@
           showToast('Transmissão encerrada.', 'info');
           return;
         }
+
+        // Verificação de suporte no dispositivo (smartphones, browsers restritos)
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+          showToast('Compartilhamento de tela não é suportado pelo navegador deste dispositivo.', 'warning');
+          return;
+        }
+
         try {
-          const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+          let stream = null;
+          // Tentativa primária: captura padrão com fallback graceful para smartphones
+          try {
+            stream = await navigator.mediaDevices.getDisplayMedia({
+              video: {
+                displaySurface: 'monitor',
+                cursor: 'always'
+              },
+              audio: true
+            });
+          } catch (optErr) {
+            // Alguns navegadores móveis (ex: Chrome Android) falham se pedir áudio de sistema ou restrições complexas
+            try {
+              stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+            } catch (mobErr) {
+              throw mobErr;
+            }
+          }
+
+          if (!stream) {
+            showToast('Nenhuma tela selecionada para transmissão.', 'warning');
+            return;
+          }
+
           APP.localScreenStream = stream;
 
           if (!APP.screenVideoElem) {
@@ -2257,6 +2276,17 @@
             APP.tvScreenMesh.material.needsUpdate = true;
           }
 
+          // Listener de encerramento pelo usuário via barra nativa do sistema/navegador
+          const videoTrack = stream.getVideoTracks()[0];
+          if (videoTrack) {
+            videoTrack.onended = () => {
+              if (APP.localScreenStream) {
+                APP.localScreenStream = null;
+                showToast('Transmissão de tela encerrada.', 'info');
+              }
+            };
+          }
+
           APP.peers.forEach((peerData, peerId) => {
             if (APP.peer && !peerId.startsWith('bot_')) {
               APP.peer.call(peerId, stream, { metadata: { type: 'screen' } });
@@ -2265,108 +2295,11 @@
 
           showToast('Tela transmitida com sucesso!', 'success');
         } catch (e) {
-          showToast('Erro ao transmitir tela.', 'warning');
-        }
-      }
-
-      function getCleanRoomKey(roomId) {
-        return 'vr3d_' + roomId.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-      }
-
-      function initP2PRoom(roomId, isHostRequested = true) {
-        APP.roomId = roomId;
-        APP.cleanRoomKey = getCleanRoomKey(roomId);
-        saveRoomToCache(roomId);
-
-        const titleEl = document.getElementById('hud-room-title');
-        if (titleEl) titleEl.textContent = `Sala: ${roomId}`;
-
-        tryJoinSlot(isHostRequested ? 1 : 2);
-      }
-
-      function tryJoinSlot(slot) {
-        if (slot > 12) {
-          showToast('Sala cheia!', 'warning');
-          return;
-        }
-
-        const candidateId = `${APP.cleanRoomKey}_s${slot}`;
-        console.log(`Tentando alocar ID do participante no slot ${slot}: ${candidateId}`);
-        updateNetworkStatus(false, `Conectando (slot ${slot})...`);
-
-        if (APP.peer && !APP.peer.destroyed) {
-          try { APP.peer.destroy(); } catch (e) {}
-        }
-
-        try {
-          const peer = new Peer(candidateId, PEER_CONFIG);
-          APP.peer = peer;
-
-          let slotAssigned = false;
-
-          peer.on('open', (id) => {
-            slotAssigned = true;
-            APP.mySlot = slot;
-            APP.myPeerId = id;
-            APP.isHost = (slot === 1);
-
-            console.log(`✓ Slot ${slot} alocado! ID:`, id);
-
-            const adminBadge = document.getElementById('hud-admin-badge');
-            const panelAdminBadge = document.getElementById('panel-admin-role-badge');
-            if (APP.isHost) {
-              if (adminBadge) adminBadge.classList.remove('hidden');
-              if (panelAdminBadge) panelAdminBadge.classList.remove('hidden');
-              updateNetworkStatus(true, `Sala criada (Host)`);
-              showToast('Você entrou na sala como Host! 👑', 'success');
-            } else {
-              if (adminBadge) adminBadge.classList.add('hidden');
-              if (panelAdminBadge) panelAdminBadge.classList.add('hidden');
-              updateNetworkStatus(true, `Conectado`);
-            }
-
-            scanAndConnectRoomSlots();
-
-            if (APP.meshScannerInterval) clearInterval(APP.meshScannerInterval);
-            APP.meshScannerInterval = setInterval(scanAndConnectRoomSlots, 4000);
-
-            if (APP.pingInterval) clearInterval(APP.pingInterval);
-            APP.pingInterval = setInterval(measurePeersPing, 2500);
-          });
-
-          peer.on('connection', (conn) => {
-            setupDataConnection(conn);
-          });
-
-          peer.on('call', (call) => {
-            handleIncomingCall(call);
-          });
-
-          peer.on('error', (err) => {
-            console.warn(`Aviso no slot ${slot}:`, err.type);
-            if (err.type === 'unavailable-id' && !slotAssigned) {
-              try { peer.destroy(); } catch (e) {}
-              tryJoinSlot(slot + 1);
-            }
-          });
-        } catch (err) {
-          console.warn('PeerJS fallback:', err);
-        }
-      }
-
-      function scanAndConnectRoomSlots() {
-        if (!APP.peer || APP.peer.destroyed || !APP.mySlot) return;
-        const maxScan = Math.max(APP.mySlot + 2, 6);
-
-        for (let s = 1; s <= maxScan; s++) {
-          if (s === APP.mySlot) continue;
-          const targetPeerId = `${APP.cleanRoomKey}_s${s}`;
-
-          const existing = APP.peers.get(targetPeerId);
-          if (existing && existing.dataConn && existing.dataConn.open) continue;
-
-          if (APP.mySlot > s || !existing) {
-            connectToPeerSlot(targetPeerId);
+          console.warn('Erro ao compartilhar tela:', e);
+          if (e.name === 'NotAllowedError') {
+            showToast('Permissão de compartilhamento cancelada pelo usuário.', 'info');
+          } else {
+            showToast('Não foi possível iniciar a transmissão neste aparelho.', 'warning');
           }
         }
       }
@@ -2858,19 +2791,6 @@
 
         document.getElementById('btn-toggle-spatial').addEventListener('click', toggleSpatialAudio);
         updateSpatialAudioUI(APP.useSpatialAudio);
-
-        // D-Pad Touch com 'd' indo perfeitamente para a direita
-        function setupDpad(id, key) {
-          const el = document.getElementById(id);
-          if (!el) return;
-          el.addEventListener('pointerdown', (e) => { e.preventDefault(); keyState[key] = true; });
-          el.addEventListener('pointerup', (e) => { e.preventDefault(); keyState[key] = false; });
-          el.addEventListener('pointerleave', (e) => { e.preventDefault(); keyState[key] = false; });
-        }
-        setupDpad('btn-dpad-up', 'w');
-        setupDpad('btn-dpad-down', 's');
-        setupDpad('btn-dpad-left', 'a');
-        setupDpad('btn-dpad-right', 'd');
 
         document.getElementById('tab-create-btn').addEventListener('click', () => {
           document.getElementById('section-create').classList.remove('hidden');
