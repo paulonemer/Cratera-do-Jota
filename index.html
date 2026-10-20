@@ -255,24 +255,24 @@
           </div>
         </div>
 
-        <!-- 🪐 DESTAQUE: SALA UNIVERSAL "CRATERA DO JOTA" -->
-        <div class="p-3.5 rounded-2xl bg-gradient-to-br from-indigo-950/90 via-slate-900/90 to-violet-950/90 border border-indigo-500/50 shadow-xl space-y-2">
+        <!-- 🪐 DESTAQUE: SALA UNIVERSAL "CRATERA DO JOTA" COM CONTAGEM AO VIVO -->
+        <div id="card-universal-room" class="p-4 rounded-2xl bg-gradient-to-br from-indigo-950/90 via-slate-900/90 to-violet-950/90 border border-indigo-500/50 shadow-xl space-y-2.5 transition-all">
           <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <span class="text-base">🪐</span>
+            <div class="flex items-center gap-2.5">
+              <span class="text-2xl">🪐</span>
               <div>
-                <div class="font-bold text-xs sm:text-sm text-white flex items-center gap-1.5">
+                <div class="font-bold text-sm sm:text-base text-white flex items-center gap-2">
                   <span>Cratera do Jota</span>
-                  <span class="text-[9px] px-1.5 py-0.2 rounded-full bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 font-normal">Sala Universal</span>
+                  <span id="badge-universal-live" class="text-[9px] px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 font-bold">Sala Oficial</span>
                 </div>
-                <div id="status-universal-room" class="text-[10px] text-indigo-300">Ponto de encontro oficial central</div>
+                <div id="status-universal-room" class="text-xs text-indigo-300">Verificando pessoas online na sala...</div>
               </div>
             </div>
-            <span id="badge-universal-count" class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">1º vira Host 👑</span>
+            <span id="badge-universal-count" class="text-[11px] font-mono px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">Verificando...</span>
           </div>
 
-          <button id="btn-enter-universal-room" type="button" class="w-full py-2.5 px-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition active:scale-[0.99] text-xs sm:text-sm">
-            <span>✨</span> Entrar na Cratera do Jota
+          <button id="btn-enter-universal-room" type="button" class="w-full py-3 px-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold rounded-xl shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition active:scale-[0.99] text-xs sm:text-sm">
+            <span id="label-enter-universal-btn">✨ Entrar na Cratera do Jota</span>
           </button>
         </div>
 
@@ -325,7 +325,7 @@
         <!-- Seção Criar -->
         <div id="section-create" class="space-y-2">
           <div class="flex items-center gap-2">
-            <input id="input-create-room-code" type="text" value="sala-1" 
+            <input id="input-create-room-code" type="text" value="crateradojota" 
                    class="flex-1 px-3.5 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-white font-mono text-sm uppercase tracking-wider focus:outline-none focus:border-indigo-500">
             <button id="btn-random-code" type="button" title="Gerar outro código" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 hover:text-white border border-slate-700 transition">
               🎲
@@ -339,8 +339,8 @@
         <!-- Seção Entrar -->
         <div id="section-join" class="space-y-2 hidden">
           <div>
-            <label class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Código ou Link da Sala</label>
-            <input id="input-room-code" type="text" placeholder="Ex: sala-1 (deixe vazio para sala-1)" 
+            <label class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">Código da Sala</label>
+            <input id="input-room-code" type="text" placeholder="Ex: crateradojota (deixe vazio para a sala oficial)" 
                    class="w-full px-3.5 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 text-sm font-mono uppercase tracking-wider">
           </div>
           <button id="btn-join-room" type="button" class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 transition active:scale-[0.99] text-xs sm:text-sm">
@@ -914,7 +914,138 @@
         return (roomId || 'sala1').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
       }
 
-      // --- RADAR DE 20 SALAS E SALA UNIVERSAL ---
+      // --- RADAR DE 20 SALAS E SALA UNIVERSAL COM SCANNER ATIVO ---
+      let lobbyScannerPeer = null;
+      let universalScanInterval = null;
+      let radarScanInterval = null;
+
+      function startLobbyScanner() {
+        stopLobbyScanner();
+
+        try {
+          lobbyScannerPeer = new Peer(PEER_CONFIG);
+        } catch (e) {
+          console.warn('Erro ao criar scanner do lobby:', e);
+          return;
+        }
+
+        lobbyScannerPeer.on('open', () => {
+          checkUniversalRoomStatus();
+          scanPublicRoomsRadar();
+
+          // Monitora a sala universal principal a cada 3.5 segundos
+          universalScanInterval = setInterval(() => {
+            checkUniversalRoomStatus();
+          }, 3500);
+
+          // Monitora as 20 salas fixas a cada 7 segundos
+          radarScanInterval = setInterval(() => {
+            scanPublicRoomsRadar();
+          }, 7000);
+        });
+
+        lobbyScannerPeer.on('disconnected', () => {
+          if (lobbyScannerPeer && !lobbyScannerPeer.destroyed) {
+            try { lobbyScannerPeer.reconnect(); } catch (e) {}
+          }
+        });
+
+        lobbyScannerPeer.on('error', (err) => {
+          // Erro normal de PeerJS quando um slot alvo está vazio
+          if (err && err.type === 'peer-unavailable') return;
+          console.log('Scanner notice:', err && err.type);
+        });
+      }
+
+      function stopLobbyScanner() {
+        if (universalScanInterval) { clearInterval(universalScanInterval); universalScanInterval = null; }
+        if (radarScanInterval) { clearInterval(radarScanInterval); radarScanInterval = null; }
+        if (lobbyScannerPeer && !lobbyScannerPeer.destroyed) {
+          try { lobbyScannerPeer.destroy(); } catch (e) {}
+          lobbyScannerPeer = null;
+        }
+      }
+
+      function probeRoom(roomKey, onStatus) {
+        if (!lobbyScannerPeer || lobbyScannerPeer.destroyed || !lobbyScannerPeer.open) {
+          onStatus(false, 0, []);
+          return;
+        }
+        const clean = cleanKey(roomKey);
+        // Varre os slots s1, s2 e s3 para encontrar pessoas mesmo se o host estiver em outro slot
+        const candidateSlots = [`cratera_${clean}_s1`, `cratera_${clean}_s2`, `cratera_${clean}_s3`];
+        let resolved = false;
+        let attemptIdx = 0;
+
+        function tryNextSlot() {
+          if (resolved || !lobbyScannerPeer || lobbyScannerPeer.destroyed || !lobbyScannerPeer.open) {
+            if (!resolved) {
+              resolved = true;
+              onStatus(false, 0, []);
+            }
+            return;
+          }
+          if (attemptIdx >= candidateSlots.length) {
+            resolved = true;
+            onStatus(false, 0, []);
+            return;
+          }
+
+          const targetId = candidateSlots[attemptIdx++];
+          try {
+            const conn = lobbyScannerPeer.connect(targetId, {
+              metadata: { isProbe: true },
+              serialization: 'json'
+            });
+
+            const timeout = setTimeout(() => {
+              if (!resolved) {
+                try { conn.close(); } catch (e) {}
+                tryNextSlot();
+              }
+            }, 850);
+
+            const handleSuccess = (count = 1, users = []) => {
+              if (!resolved) {
+                resolved = true;
+                clearTimeout(timeout);
+                onStatus(true, count, users);
+                setTimeout(() => { try { conn.close(); } catch (e) {} }, 300);
+              }
+            };
+
+            if (conn.open) {
+              setTimeout(() => {
+                if (!resolved) handleSuccess(1, []);
+              }, 300);
+            } else {
+              conn.on('open', () => {
+                setTimeout(() => {
+                  if (!resolved) handleSuccess(1, []);
+                }, 300);
+              });
+            }
+
+            conn.on('data', (data) => {
+              if (data && data.type === 'probe_pong') {
+                handleSuccess(data.count || 1, data.users || []);
+              }
+            });
+
+            conn.on('error', () => {
+              if (!resolved) {
+                clearTimeout(timeout);
+                tryNextSlot();
+              }
+            });
+          } catch (e) {
+            tryNextSlot();
+          }
+        }
+
+        tryNextSlot();
+      }
+
       function initRadarRoomsUI() {
         const grid = document.getElementById('radar-rooms-grid');
         if (!grid) return;
@@ -927,7 +1058,7 @@
           btn.id = `radar-btn-${roomCode}`;
           btn.className = 'p-1.5 rounded-xl bg-slate-950/80 hover:bg-indigo-950 border border-slate-800 hover:border-indigo-500 text-slate-300 text-[10px] font-mono font-bold flex flex-col items-center justify-center gap-0.5 transition active:scale-95';
           btn.innerHTML = `<span>${i}</span><span id="radar-dot-${roomCode}" class="w-1.5 h-1.5 rounded-full bg-slate-600"></span>`;
-          btn.title = `Entrar na ${roomCode}`;
+          btn.title = `Entrar na ${roomCode} (Livre)`;
           btn.addEventListener('click', () => {
             const username = document.getElementById('input-username').value.trim() || 'Viajante';
             APP.myUser.name = username;
@@ -937,93 +1068,183 @@
         }
       }
 
+      let isRadarScanning = false;
+
       function scanPublicRoomsRadar() {
+        if (isRadarScanning) return;
+        isRadarScanning = true;
+
         const ind = document.getElementById('radar-status-indicator');
-        if (ind) ind.textContent = '• 20 Salas Prontas';
+        if (ind) ind.textContent = '• Varrendo 20 salas...';
+
+        let activeCount = 0;
+        let firstActiveRoom = null;
+        let scanned = 0;
+
+        const rooms = [];
+        for (let i = 1; i <= 20; i++) rooms.push(`sala-${i}`);
+
+        function probeBatch(startIndex) {
+          const batch = rooms.slice(startIndex, startIndex + 4);
+          if (batch.length === 0) {
+            isRadarScanning = false;
+            return;
+          }
+
+          batch.forEach(code => {
+            probeRoom(code, (isOnline, count, users) => {
+              updateRadarTileStatus(code, isOnline, count);
+              if (isOnline) {
+                activeCount++;
+                if (!firstActiveRoom) firstActiveRoom = { code, count };
+              }
+              scanned++;
+              if (scanned === 20) {
+                APP.hasAnyActiveRoom = (activeCount > 0);
+                APP.firstActiveRoom = firstActiveRoom;
+                if (ind) {
+                  ind.textContent = activeCount > 0
+                    ? `• ${activeCount} sala(s) com pessoas online!`
+                    : '• 20 Salas livres';
+                }
+                const quickBtn = document.getElementById('btn-quick-join');
+                if (quickBtn && !APP.universalRoomOnline) {
+                  if (firstActiveRoom) {
+                    quickBtn.innerHTML = `⚡ Entrar na ${firstActiveRoom.code} (${firstActiveRoom.count})`;
+                    quickBtn.className = 'text-[10px] font-bold text-emerald-300 px-2 py-0.5 rounded bg-emerald-500/30 border border-emerald-400 font-mono transition flex items-center gap-1 active:scale-95 animate-pulse';
+                  } else {
+                    quickBtn.innerHTML = '⚡ Entrada Rápida';
+                    quickBtn.className = 'text-[10px] font-bold text-emerald-400 hover:text-emerald-300 px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/30 transition flex items-center gap-1 active:scale-95';
+                  }
+                }
+                isRadarScanning = false;
+              }
+            });
+          });
+
+          if (startIndex + 4 < rooms.length) {
+            setTimeout(() => {
+              probeBatch(startIndex + 4);
+            }, 250);
+          }
+        }
+
+        probeBatch(0);
       }
 
-      function updateRadarTileStatus(roomCode, isOnline) {
-        APP.radarRoomsState.set(roomCode, { online: isOnline });
+      function updateRadarTileStatus(roomCode, isOnline, count = 0) {
+        APP.radarRoomsState.set(roomCode, { online: isOnline, count: count });
         const btn = document.getElementById(`radar-btn-${roomCode}`);
         const dot = document.getElementById(`radar-dot-${roomCode}`);
         if (!btn || !dot) return;
 
         if (isOnline) {
-          btn.classList.remove('border-slate-800', 'text-slate-300');
-          btn.classList.add('border-emerald-500/60', 'bg-emerald-950/40', 'text-emerald-300');
-          dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse';
+          btn.className = 'p-1.5 rounded-xl bg-emerald-950/90 border-2 border-emerald-400 text-emerald-200 text-[10px] font-mono font-extrabold flex flex-col items-center justify-center gap-0.5 transition active:scale-95 shadow-md shadow-emerald-500/20';
+          dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+          btn.title = `${roomCode}: ${count || 1} pessoa(s) online agora!`;
+          const numSpan = btn.querySelector('span:first-child');
+          if (numSpan && count > 0) numSpan.textContent = `${roomCode.replace('sala-', '')} (${count})`;
         } else {
-          btn.classList.remove('border-emerald-500/60', 'bg-emerald-950/40', 'text-emerald-300');
-          btn.classList.add('border-slate-800', 'text-slate-300');
+          btn.className = 'p-1.5 rounded-xl bg-slate-950/80 hover:bg-indigo-950 border border-slate-800 hover:border-indigo-500 text-slate-300 text-[10px] font-mono font-bold flex flex-col items-center justify-center gap-0.5 transition active:scale-95';
           dot.className = 'w-1.5 h-1.5 rounded-full bg-slate-600';
+          btn.title = `Entrar na ${roomCode} (Livre)`;
+          const numSpan = btn.querySelector('span:first-child');
+          if (numSpan) numSpan.textContent = roomCode.replace('sala-', '');
         }
       }
 
       function checkUniversalRoomStatus() {
-        const hostPeerId = `cratera_crateradojota_s1`;
-        let probe = null;
-        try {
-          probe = new Peer(PEER_CONFIG);
-          probe.on('open', () => {
-            const conn = probe.connect(hostPeerId, { serialization: 'json' });
-            const timer = setTimeout(() => {
-              updateUniversalStatusUI(false);
-              try { if (probe && !probe.destroyed) probe.destroy(); } catch (e) {}
-            }, 1400);
-
-            conn.on('open', () => {
-              clearTimeout(timer);
-              updateUniversalStatusUI(true);
-              try { if (probe && !probe.destroyed) probe.destroy(); } catch (e) {}
-            });
-            conn.on('error', () => {
-              clearTimeout(timer);
-              updateUniversalStatusUI(false);
-              try { if (probe && !probe.destroyed) probe.destroy(); } catch (e) {}
-            });
-          });
-          probe.on('error', () => {
-            updateUniversalStatusUI(false);
-            try { if (probe && !probe.destroyed) probe.destroy(); } catch (e) {}
-          });
-        } catch (e) {
-          updateUniversalStatusUI(false);
-        }
+        probeRoom('crateradojota', (isOnline, count, users) => {
+          updateUniversalStatusUI(isOnline, count, users);
+        });
       }
 
-      function updateUniversalStatusUI(isOnline) {
-        const text = document.getElementById('status-universal-room');
-        const badge = document.getElementById('badge-universal-count');
-        if (text) text.textContent = isOnline ? '🟢 Pessoas online agora!' : 'Ponto de encontro oficial central';
-        if (badge) {
-          if (isOnline) {
-            badge.className = 'text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/30 text-emerald-200 border border-emerald-400 font-bold animate-pulse';
-            badge.textContent = 'AO VIVO 🟢';
-          } else {
-            badge.className = 'text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40';
-            badge.textContent = '1º vira Host 👑';
+      function updateUniversalStatusUI(isOnline, count = 0, users = []) {
+        const card = document.getElementById('card-universal-room');
+        const statusText = document.getElementById('status-universal-room');
+        const badgeCount = document.getElementById('badge-universal-count');
+        const btnLabel = document.getElementById('label-enter-universal-btn');
+        const btn = document.getElementById('btn-enter-universal-room');
+        const quickBtn = document.getElementById('btn-quick-join');
+
+        APP.universalRoomOnline = isOnline;
+        APP.universalRoomCount = count;
+
+        if (isOnline && count > 0) {
+          if (card) {
+            card.className = 'p-4 rounded-2xl bg-gradient-to-br from-emerald-950/80 via-slate-900/90 to-indigo-950/90 border-2 border-emerald-400 shadow-2xl shadow-emerald-500/25 space-y-2.5 transition-all';
+          }
+          if (badgeCount) {
+            badgeCount.className = 'text-xs font-mono px-3 py-1 rounded-full bg-emerald-500/30 text-emerald-200 border border-emerald-400 font-extrabold animate-pulse';
+            badgeCount.textContent = count === 1 ? '🟢 1 PESSOA ONLINE' : `🟢 ${count} PESSOAS ONLINE`;
+          }
+          if (statusText) {
+            if (users && users.length > 0) {
+              const userListStr = users.slice(0, 3).join(', ') + (users.length > 3 ? ` e mais ${users.length - 3}` : '');
+              statusText.innerHTML = `<span class="text-emerald-300 font-bold">🟢 ${userListStr}</span> ${users.length > 1 ? 'estão' : 'está'} nesta sala agora!`;
+            } else {
+              statusText.innerHTML = `<span class="text-emerald-300 font-bold">🟢 ${count} ${count === 1 ? 'pessoa online' : 'pessoas online'} agora!</span> Clique abaixo para entrar junto.`;
+            }
+          }
+          if (btnLabel) {
+            btnLabel.textContent = `✨ Entrar na Cratera do Jota (${count} ${count === 1 ? 'pessoa online' : 'pessoas online'}!)`;
+          }
+          if (btn) {
+            btn.className = 'w-full py-3 px-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white font-extrabold rounded-xl shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2 transition active:scale-[0.99] text-xs sm:text-sm animate-pulse';
+          }
+          if (quickBtn) {
+            quickBtn.innerHTML = `⚡ Entrar na Cratera (${count} online)`;
+            quickBtn.className = 'text-[10px] font-bold text-emerald-300 px-2 py-0.5 rounded bg-emerald-500/30 border border-emerald-400 font-mono transition flex items-center gap-1 active:scale-95 animate-pulse';
+          }
+        } else {
+          if (card) {
+            card.className = 'p-4 rounded-2xl bg-gradient-to-br from-indigo-950/80 via-slate-900/90 to-violet-950/80 border border-indigo-500/50 shadow-xl space-y-2.5 transition-all';
+          }
+          if (badgeCount) {
+            badgeCount.className = 'text-[11px] font-mono px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700';
+            badgeCount.textContent = '⚪ 0 pessoas online';
+          }
+          if (statusText) {
+            statusText.textContent = 'Sala livre no momento. Seja o 1º a entrar e vire o Host 👑';
+          }
+          if (btnLabel) {
+            btnLabel.textContent = '✨ Entrar na Cratera do Jota (Iniciar como 1º)';
+          }
+          if (btn) {
+            btn.className = 'w-full py-3 px-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition active:scale-[0.99] text-xs sm:text-sm';
+          }
+          if (quickBtn && !APP.hasAnyActiveRoom) {
+            quickBtn.innerHTML = '⚡ Entrada Rápida';
+            quickBtn.className = 'text-[10px] font-bold text-emerald-400 hover:text-emerald-300 px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/30 transition flex items-center gap-1 active:scale-95';
           }
         }
       }
 
       function performQuickJoin() {
-        // Encontra a primeira sala online no radar
+        const username = document.getElementById('input-username').value.trim() || 'Viajante';
+        APP.myUser.name = username;
+
+        // 1. Se a Cratera do Jota tem pessoas, entra nela!
+        if (APP.universalRoomOnline) {
+          showToast('Entrando na Cratera do Jota com os colegas!', 'success');
+          closeLobbyAndStart('crateradojota', true);
+          return;
+        }
+
+        // 2. Se alguma sala do radar tem pessoas, entra nela!
         for (let i = 1; i <= 20; i++) {
           const code = `sala-${i}`;
           const state = APP.radarRoomsState.get(code);
           if (state && state.online) {
             showToast(`Entrando na sala ativa ${code}!`, 'success');
-            const username = document.getElementById('input-username').value.trim() || 'Viajante';
-            APP.myUser.name = username;
             closeLobbyAndStart(code, true);
             return;
           }
         }
-        // Se todas estiverem livres, entra na sala-1
-        showToast('Nenhuma sala com pessoas no momento. Criando sala-1!', 'info');
-        const username = document.getElementById('input-username').value.trim() || 'Viajante';
-        APP.myUser.name = username;
-        closeLobbyAndStart('sala-1', true);
+
+        // 3. Se nenhuma sala tem pessoas, todos entram na Cratera do Jota como ponto comum!
+        showToast('Ninguém online no momento. Entrando na Cratera do Jota como Host!', 'info');
+        closeLobbyAndStart('crateradojota', true);
       }
 
       function saveRoomToCache(roomId) {
@@ -1076,8 +1297,9 @@
           if (ping) ping.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping';
           if (dot) dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 -ml-4.5';
           if (statusText) {
-            statusText.textContent = text || `Conectado (${APP.peers.size + 1})`;
-            statusText.className = 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+            const total = APP.peers.size + 1;
+            statusText.textContent = text || (total === 1 ? '1 online (Você)' : `${total} pessoas online`);
+            statusText.className = 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold';
           }
         } else {
           if (ping) ping.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping';
@@ -1891,6 +2113,35 @@
         return sprite;
       }
 
+      function updateNameTagOnMesh(mesh, name, colorHex, isHost = false, ping = 0) {
+        if (!mesh || !mesh.userData.nameSprite) return;
+        const sprite = mesh.userData.nameSprite;
+        const canvas = sprite.userData.canvas;
+        const ctx = sprite.userData.ctx;
+        if (!canvas || !ctx) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+        ctx.beginPath();
+        ctx.roundRect(8, 8, 284, 54, 16);
+        ctx.fill();
+        ctx.strokeStyle = isHost ? '#f59e0b' : (colorHex || '#6366f1');
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 20px "Plus Jakarta Sans", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        let text = isHost ? `👑 ${name}` : name;
+        if (ping > 0) text += ` • ${ping}ms`;
+        ctx.fillText(text, 150, 35);
+
+        if (sprite.material && sprite.material.map) {
+          sprite.material.map.needsUpdate = true;
+        }
+      }
+
       function createEmoteSprite(emoji) {
         const canvas = document.createElement('canvas');
         canvas.width = 128;
@@ -2616,107 +2867,303 @@
         }
       }
 
-      // --- MOTOR P2P MESH DETERMINÍSTICO E DINÂMICO ---
+      // --- MOTOR P2P MESH DETERMINÍSTICO E DINÂMICO COM ELEIÇÃO DE HOST EM TEMPO REAL ---
       let heartbeatTimer = null;
+      let meshRescanTimer = null;
+      let hostElectionTimer = null;
 
       function initP2PRoom(roomId, isHost) {
-        APP.roomId = roomId;
-        APP.cleanRoomKey = cleanKey(roomId);
-        saveRoomToCache(roomId);
+        APP.roomId = roomId || 'crateradojota';
+        APP.cleanRoomKey = cleanKey(APP.roomId);
+        saveRoomToCache(APP.roomId);
+
+        try {
+          if (window.location.hash !== '#' + APP.roomId) {
+            window.location.hash = APP.roomId;
+          }
+        } catch (e) {}
 
         const roomTitle = document.getElementById('hud-room-title');
-        if (roomTitle) roomTitle.textContent = `Sala: ${roomId}`;
+        if (roomTitle) {
+          const dName = (APP.roomId === 'crateradojota') ? 'Cratera do Jota' : APP.roomId;
+          roomTitle.textContent = `${dName} (1 online)`;
+        }
 
         if (APP.peer && !APP.peer.destroyed) {
           try { APP.peer.destroy(); } catch (e) {}
         }
         APP.peers.clear();
+        APP.isHost = false;
 
-        joinRoomP2P();
+        acquireRoomSlot(1);
       }
 
-      function joinRoomP2P() {
-        const hostId = `cratera_${APP.cleanRoomKey}_host`;
-        let hostPeer = null;
-
-        try {
-          hostPeer = new Peer(hostId, PEER_CONFIG);
-        } catch (e) {
-          becomeClient(hostId);
+      function acquireRoomSlot(slotNum) {
+        if (slotNum > 8) {
+          const dynamicId = `cratera_${APP.cleanRoomKey}_p_${Math.random().toString(36).substring(2, 9)}`;
+          startPeerSession(dynamicId, slotNum, false, null);
           return;
         }
 
-        let hostResolved = false;
+        const candidateId = `cratera_${APP.cleanRoomKey}_s${slotNum}`;
+        updateNetworkStatus(false, `Buscando vaga na sala (Slot #${slotNum})...`);
 
-        hostPeer.on('open', (id) => {
-          hostResolved = true;
-          APP.peer = hostPeer;
-          APP.myPeerId = id;
-          APP.isHost = true;
-
-          const adminBadge = document.getElementById('hud-admin-badge');
-          if (adminBadge) adminBadge.classList.remove('hidden');
-          const panelAdminBadge = document.getElementById('panel-admin-role-badge');
-          if (panelAdminBadge) panelAdminBadge.classList.remove('hidden');
-
-          setupPeerEngine();
-          updateNetworkStatus(true, '👑 Host da Sala (Aguardando colegas)');
-          showToast('Você é o Host da sala 👑', 'success');
-          startHeartbeat();
-        });
-
-        hostPeer.on('error', (err) => {
-          if (hostResolved) return;
-          hostResolved = true;
-          // ID já em uso significa que o Host já está na sala! Entra como participante:
-          try { hostPeer.destroy(); } catch (e) {}
-          becomeClient(hostId);
-        });
-      }
-
-      function becomeClient(hostId) {
-        const myClientId = `cratera_${APP.cleanRoomKey}_p_${Math.random().toString(36).substring(2, 9)}`;
-        let clientPeer = null;
+        let candidatePeer = null;
         try {
-          clientPeer = new Peer(myClientId, PEER_CONFIG);
+          candidatePeer = new Peer(candidateId, PEER_CONFIG);
         } catch (e) {
-          showToast('Erro ao criar sessão P2P.', 'error');
+          acquireRoomSlot(slotNum + 1);
           return;
         }
 
-        clientPeer.on('open', (id) => {
-          APP.peer = clientPeer;
-          APP.myPeerId = id;
-          APP.isHost = false;
+        let handled = false;
 
-          const adminBadge = document.getElementById('hud-admin-badge');
-          if (adminBadge) adminBadge.classList.add('hidden');
-          const panelAdminBadge = document.getElementById('panel-admin-role-badge');
-          if (panelAdminBadge) panelAdminBadge.classList.add('hidden');
+        const candidateTimer = setTimeout(() => {
+          if (!handled) {
+            handled = true;
+            try { candidatePeer.destroy(); } catch (err) {}
+            acquireRoomSlot(slotNum + 1);
+          }
+        }, 1800);
 
-          setupPeerEngine();
-          updateNetworkStatus(false, 'Conectando ao Host da sala...');
-          showToast('Entrando na sala do Host...', 'info');
-
-          // Conecta diretamente ao Host
-          connectToPeer(hostId);
-          startHeartbeat();
+        candidatePeer.on('open', (id) => {
+          if (handled) return;
+          handled = true;
+          clearTimeout(candidateTimer);
+          startPeerSession(id, slotNum, slotNum === 1, candidatePeer);
         });
 
-        clientPeer.on('error', (err) => {
-          console.warn('Erro P2P Cliente:', err);
-          if (err && err.type === 'peer-unavailable') {
-            // Se o Host não foi encontrado, tenta assumir como Host
-            showToast('Host offline, assumindo a sala...', 'info');
-            setTimeout(joinRoomP2P, 800);
+        candidatePeer.on('error', (err) => {
+          if (handled) return;
+          handled = true;
+          clearTimeout(candidateTimer);
+          try { candidatePeer.destroy(); } catch (e) {}
+          acquireRoomSlot(slotNum + 1);
+        });
+      }
+
+      function promoteToHost(notifyPeers = true) {
+        if (APP.isHost) return;
+        APP.isHost = true;
+        APP.myUser.isHost = true;
+
+        const adminBadge = document.getElementById('hud-admin-badge');
+        if (adminBadge) {
+          adminBadge.classList.remove('hidden');
+          adminBadge.textContent = '👑 HOST';
+          adminBadge.className = 'text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold shrink-0';
+        }
+        const panelAdminBadge = document.getElementById('panel-admin-role-badge');
+        if (panelAdminBadge) {
+          panelAdminBadge.classList.remove('hidden');
+          panelAdminBadge.textContent = `👑 VOCÊ É O HOST (#${APP.mySlot || 1})`;
+        }
+
+        if (myAvatarMesh) {
+          updateNameTagOnMesh(myAvatarMesh, APP.myUser.name, APP.myUser.color, true, 0);
+        }
+
+        const total = APP.peers.size + 1;
+        const statusMsg = total === 1 ? '👑 Host da Sala (Aguardando colegas)' : `${total} online (Você é o Host 👑)`;
+        updateNetworkStatus(true, statusMsg);
+
+        showToast('👑 Você assumiu o comando como Host da sala!', 'success');
+
+        if (notifyPeers) {
+          broadcastToPeers({
+            type: 'host_claim',
+            hostPeerId: APP.myPeerId,
+            hostSlot: APP.mySlot,
+            hostName: APP.myUser.name
+          });
+        }
+      }
+
+      function yieldHost(newHostPeerId) {
+        if (!APP.isHost) return;
+        APP.isHost = false;
+        APP.myUser.isHost = false;
+
+        const adminBadge = document.getElementById('hud-admin-badge');
+        if (adminBadge) {
+          adminBadge.textContent = `Slot #${APP.mySlot}`;
+          adminBadge.className = 'text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold shrink-0';
+        }
+        const panelAdminBadge = document.getElementById('panel-admin-role-badge');
+        if (panelAdminBadge) {
+          panelAdminBadge.classList.add('hidden');
+        }
+
+        if (myAvatarMesh) {
+          updateNameTagOnMesh(myAvatarMesh, APP.myUser.name, APP.myUser.color, false, 0);
+        }
+
+        const total = APP.peers.size + 1;
+        updateNetworkStatus(true, `${total} pessoas online`);
+      }
+
+      // Eleição Dinâmica de Host: algoritmo determinístico e à prova de falhas
+      function evaluateRoomHost() {
+        if (!APP.peer || APP.peer.destroyed) return;
+
+        // Se estou sozinho na sala, viro Host imediatamente!
+        if (APP.peers.size === 0) {
+          if (!APP.isHost) {
+            promoteToHost(false);
+          } else {
+            updateNetworkStatus(true, '👑 Host da Sala (Aguardando colegas)');
+          }
+          return;
+        }
+
+        // Se há pessoas na sala, descobre quem tem o menor slot entre os participantes ativos
+        let lowestPeerSlot = 999;
+        let lowestPeer = null;
+        let activeHostPeer = null;
+
+        APP.peers.forEach((peer, peerId) => {
+          let slotMatch = peerId.match(/_s(\d+)$/);
+          let slot = slotMatch ? parseInt(slotMatch[1], 10) : (peer.slot || 999);
+          peer.slot = slot;
+
+          if (slot < lowestPeerSlot) {
+            lowestPeerSlot = slot;
+            lowestPeer = peer;
+          }
+
+          if (peer.isHost) {
+            if (!activeHostPeer || slot < (activeHostPeer.slot || 999)) {
+              activeHostPeer = peer;
+            }
           }
         });
+
+        const mySlot = APP.mySlot || 999;
+
+        // Se há um colega com menor slot que é host (ou elegível a host)
+        if (lowestPeerSlot < mySlot) {
+          if (APP.isHost) {
+            yieldHost(lowestPeer.id);
+          }
+          // Garante que o peer de menor slot fica com tag de Host
+          APP.peers.forEach((p) => {
+            const isLowest = (p === lowestPeer);
+            p.isHost = isLowest;
+            if (p.mesh) updateNameTagOnMesh(p.mesh, p.name, p.color, isLowest, p.ping);
+          });
+          updatePeersListUI();
+          return;
+        }
+
+        // Se o meu slot é menor ou igual ao de todos os outros colegas da sala:
+        if (mySlot <= lowestPeerSlot) {
+          if (!APP.isHost) {
+            promoteToHost(true);
+          }
+          // Remove a marcação de host de qualquer colega com slot maior
+          APP.peers.forEach((p) => {
+            if (p.isHost) {
+              p.isHost = false;
+              if (p.mesh) updateNameTagOnMesh(p.mesh, p.name, p.color, false, p.ping);
+            }
+          });
+          updatePeersListUI();
+        }
+      }
+
+      function startPeerSession(myId, slotNum, initialHostGuess, peerInstance) {
+        if (peerInstance) {
+          APP.peer = peerInstance;
+        } else {
+          try {
+            APP.peer = new Peer(myId, PEER_CONFIG);
+          } catch (e) {
+            showToast('Erro ao criar sessão P2P.', 'error');
+            return;
+          }
+        }
+
+        APP.myPeerId = myId;
+        APP.mySlot = slotNum;
+        APP.isHost = false; // Começa neutro até checar a malha
+
+        const adminBadge = document.getElementById('hud-admin-badge');
+        if (adminBadge) {
+          adminBadge.classList.remove('hidden');
+          adminBadge.textContent = `Slot #${slotNum}`;
+          adminBadge.className = 'text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold shrink-0';
+        }
+
+        const roomTitle = document.getElementById('hud-room-title');
+        if (roomTitle) {
+          const dName = (APP.roomId === 'crateradojota') ? 'Cratera do Jota' : APP.roomId;
+          roomTitle.textContent = `${dName} (#${slotNum})`;
+        }
+
+        setupPeerEngine();
+
+        if (slotNum === 1) {
+          // Se for slot 1, assume provisoriamente como host
+          promoteToHost(false);
+        } else {
+          updateNetworkStatus(false, `Conectado no Slot #${slotNum}. Sincronizando...`);
+          showToast(`Entrou na sala (Slot #${slotNum})! Sincronizando...`, 'info');
+        }
+
+        connectToRoomMesh();
+        startHeartbeat();
+
+        // Eleição Dinâmica de Host:
+        // Após 1500ms, avalia se há algum Host vivo conectado.
+        // Se não houver nenhum outro host na sala ou se estivermos sozinhos, nós viramos o Host automaticamente!
+        if (hostElectionTimer) clearTimeout(hostElectionTimer);
+        hostElectionTimer = setTimeout(() => {
+          evaluateRoomHost();
+        }, 1500);
+      }
+
+      function connectToRoomMesh() {
+        if (!APP.peer || APP.peer.destroyed) return;
+
+        for (let s = 1; s <= 8; s++) {
+          if (s === APP.mySlot) continue;
+          const targetSlotId = `cratera_${APP.cleanRoomKey}_s${s}`;
+          connectToPeer(targetSlotId);
+        }
       }
 
       function setupPeerEngine() {
         if (!APP.peer) return;
 
         APP.peer.on('connection', (conn) => {
+          // Sondagem do radar do lobby com resposta garantida
+          if (conn.metadata && conn.metadata.isProbe) {
+            const sendPong = () => {
+              try {
+                const userNames = [APP.myUser.name];
+                APP.peers.forEach(p => {
+                  if (p.name && p.name !== 'Conectando...' && p.name !== 'Entrando...') {
+                    userNames.push(p.name);
+                  }
+                });
+                conn.send({
+                  type: 'probe_pong',
+                  room: APP.roomId,
+                  count: APP.peers.size + 1,
+                  users: userNames
+                });
+              } catch (e) {}
+              setTimeout(() => { try { conn.close(); } catch (e) {} }, 400);
+            };
+
+            if (conn.open) {
+              sendPong();
+            } else {
+              conn.on('open', sendPong);
+            }
+            return;
+          }
+
           setupDataConnection(conn);
         });
 
@@ -2724,8 +3171,15 @@
           handleIncomingCall(call);
         });
 
+        APP.peer.on('error', (err) => {
+          if (err && err.type === 'peer-unavailable') return;
+          console.warn('Peer error:', err);
+        });
+
         APP.peer.on('disconnected', () => {
-          if (APP.peer && !APP.peer.destroyed) APP.peer.reconnect();
+          if (APP.peer && !APP.peer.destroyed) {
+            try { APP.peer.reconnect(); } catch (e) {}
+          }
         });
       }
 
@@ -2742,7 +3196,9 @@
             reliable: true,
             serialization: 'json'
           });
-          setupDataConnection(conn);
+          if (conn) {
+            setupDataConnection(conn);
+          }
         } catch (e) {
           console.warn('Falha ao conectar com peer:', targetPeerId, e);
         }
@@ -2754,47 +3210,51 @@
         conn.on('open', () => {
           let peerData = APP.peers.get(conn.peer);
           if (!peerData) {
-            peerData = createPeerRecord(conn.peer, 'Conectando...', '#10b981', conn.peer.endsWith('_host'));
+            peerData = createPeerRecord(conn.peer, 'Entrando...', '#10b981', conn.peer.endsWith('_s1'));
           }
           peerData.dataConn = conn;
 
           updateNetworkStatus(true);
           updatePeersListUI();
 
-          // 1. Envia handshake imediato com dados do avatar e coordenadas atuais
+          // 1. Envia handshake imediato com dados REAIS do usuário
           try {
             conn.send({
               type: 'handshake',
-              user: { ...APP.myUser, isHost: APP.isHost }
+              user: {
+                id: APP.myUser.id,
+                name: APP.myUser.name || 'Viajante',
+                color: APP.myUser.color || '#6366f1',
+                isHost: APP.isHost,
+                mySlot: APP.mySlot,
+                hologramUrl: APP.myUser.hologramUrl || '',
+                x: APP.myUser.x,
+                z: APP.myUser.z
+              }
             });
           } catch (e) {}
 
-          // 2. Se eu sou o Host, compartilho a lista dos outros peers para conectar todos em malha
-          if (APP.isHost) {
-            const otherPeerIds = [];
-            APP.peers.forEach((p, pId) => {
-              if (pId !== conn.peer) otherPeerIds.push(pId);
-            });
-            if (otherPeerIds.length > 0) {
-              try {
-                conn.send({
-                  type: 'room_peers',
-                  peers: otherPeerIds
-                });
-              } catch (e) {}
-            }
+          // 2. Gossip de outros peers conhecidos
+          const otherPeerIds = [];
+          APP.peers.forEach((p, pId) => {
+            if (pId !== conn.peer && pId !== APP.myPeerId) otherPeerIds.push(pId);
+          });
+          if (otherPeerIds.length > 0) {
+            try {
+              conn.send({
+                type: 'room_peers',
+                peers: otherPeerIds
+              });
+            } catch (e) {}
           }
 
-          // 3. Chamada de áudio e tela
-          if (APP.localAudioStream && APP.peer) {
-            APP.peer.call(conn.peer, APP.localAudioStream, { metadata: { type: 'audio' } });
-          }
-          if (APP.localWebcamStream && APP.isWebcamActive && APP.peer) {
-            APP.peer.call(conn.peer, APP.localWebcamStream, { metadata: { type: 'webcam' } });
-          }
-          if (APP.localScreenStream && APP.peer) {
-            APP.peer.call(conn.peer, APP.localScreenStream, { metadata: { type: 'screen' } });
-          }
+          // 3. Chamadas de mídia
+          callPeerMedia(conn.peer);
+
+          // 4. Reavaliação de host dinâmico
+          setTimeout(() => {
+            evaluateRoomHost();
+          }, 350);
         });
 
         conn.on('data', (data) => {
@@ -2806,11 +3266,51 @@
         conn.on('close', () => {
           removePeer(conn.peer);
           updateNetworkStatus(APP.peers.size > 0 || APP.isHost);
+          evaluateRoomHost();
         });
 
         conn.on('error', (err) => {
           console.warn('Erro de conexão com peer:', conn.peer, err);
         });
+      }
+
+      function callPeerMedia(targetPeerId) {
+        if (!APP.peer || APP.peer.destroyed || targetPeerId === APP.myPeerId) return;
+
+        const audioStream = APP.localAudioStream || createSilentAudioStream();
+        if (audioStream) {
+          try {
+            const audioCall = APP.peer.call(targetPeerId, audioStream, { metadata: { type: 'audio' } });
+            if (audioCall) {
+              audioCall.on('stream', (remoteStream) => {
+                attachAudioStreamToPeer(targetPeerId, remoteStream);
+              });
+              audioCall.on('error', (err) => console.warn('Audio call error:', err));
+            }
+          } catch (e) {}
+        }
+
+        if (APP.localWebcamStream && APP.isWebcamActive) {
+          try {
+            const camCall = APP.peer.call(targetPeerId, APP.localWebcamStream, { metadata: { type: 'webcam' } });
+            if (camCall) {
+              camCall.on('stream', (remoteStream) => {
+                attachWebcamStreamToPeer(targetPeerId, remoteStream);
+              });
+            }
+          } catch (e) {}
+        }
+
+        if (APP.localScreenStream && APP.myUser.isSharingScreen) {
+          try {
+            const screenCall = APP.peer.call(targetPeerId, APP.localScreenStream, { metadata: { type: 'screen' } });
+            if (screenCall) {
+              screenCall.on('stream', (remoteStream) => {
+                applyRemoteScreenToTV(remoteStream, targetPeerId);
+              });
+            }
+          } catch (e) {}
+        }
       }
 
       function handleIncomingCall(call) {
@@ -2828,7 +3328,6 @@
             attachWebcamStreamToPeer(call.peer, remoteStream);
           });
         } else {
-          // Se tiver áudio local, envia; senão, envia stream silenciosa para não falhar a negociação
           const outStream = APP.localAudioStream || createSilentAudioStream() || undefined;
           call.answer(outStream);
           call.on('stream', (remoteStream) => {
@@ -2948,6 +3447,7 @@
         if (!audio) {
           audio = document.createElement('audio');
           audio.autoplay = true;
+          audio.playsInline = true;
           peerData.audioElem = audio;
           document.body.appendChild(audio);
         }
@@ -3070,13 +3570,60 @@
             try {
               conn.send({
                 type: 'handshake_ack',
-                user: { ...APP.myUser, isHost: APP.isHost }
+                user: {
+                  id: APP.myUser.id,
+                  name: APP.myUser.name || 'Viajante',
+                  color: APP.myUser.color || '#6366f1',
+                  isHost: APP.isHost,
+                  mySlot: APP.mySlot,
+                  hologramUrl: APP.myUser.hologramUrl || '',
+                  x: APP.myUser.x,
+                  z: APP.myUser.z
+                }
               });
             } catch (e) {}
+            if (data.user && data.user.name && data.user.name !== 'Conectando...' && data.user.name !== 'Entrando...') {
+              showToast(`${data.user.name} entrou na sala! 👋`, 'success');
+            }
+            evaluateRoomHost();
             break;
 
           case 'handshake_ack':
             addOrUpdatePeer(peerId, data.user, conn);
+            evaluateRoomHost();
+            break;
+
+          case 'host_claim':
+            const claimantSlot = data.hostSlot || 999;
+            const mySlot = APP.mySlot || 999;
+
+            if (claimantSlot < mySlot) {
+              if (APP.isHost) {
+                yieldHost(data.hostPeerId);
+              }
+              APP.peers.forEach((p, pId) => {
+                const isClaimant = (pId === data.hostPeerId);
+                p.isHost = isClaimant;
+                if (p.mesh) updateNameTagOnMesh(p.mesh, p.name, p.color, isClaimant, p.ping);
+              });
+              updatePeersListUI();
+            } else if (claimantSlot > mySlot) {
+              promoteToHost(true);
+            }
+            break;
+
+          case 'peer_leave':
+            removePeer(data.peerId || peerId);
+            evaluateRoomHost();
+            break;
+
+          case 'hologram':
+            const holoPeer = APP.peers.get(peerId);
+            if (holoPeer) {
+              holoPeer.hologramUrl = data.url || '';
+              if (holoPeer.mesh) setAvatarHologram(holoPeer.mesh, data.url || '');
+              if (APP.viewMode === '2d') renderDiscordGrid();
+            }
             break;
 
           case 'room_peers':
@@ -3127,6 +3674,9 @@
             const p = APP.peers.get(peerId);
             if (p) {
               p.ping = Math.max(1, Date.now() - (data.t || Date.now()));
+              if (p.mesh) {
+                updateNameTagOnMesh(p.mesh, p.name, p.color, p.isHost, p.ping);
+              }
               updatePeersListUI();
             }
             break;
@@ -3138,24 +3688,59 @@
         heartbeatTimer = setInterval(() => {
           if (!APP.peer || APP.peer.destroyed) return;
           const now = Date.now();
-          APP.peers.forEach((p, pId) => {
+          const knownPeers = Array.from(APP.peers.keys());
+
+          APP.peers.forEach((p) => {
             if (p.dataConn && p.dataConn.open) {
-              try { p.dataConn.send({ type: 'ping', t: now }); } catch (e) {}
+              try {
+                p.dataConn.send({ type: 'ping', t: now });
+                p.dataConn.send({ type: 'room_peers', peers: knownPeers });
+              } catch (e) {}
             }
           });
-        }, 2500);
+
+          // Reavaliação periódica contínua do Host da sala
+          evaluateRoomHost();
+        }, 3000);
+
+        if (meshRescanTimer) clearInterval(meshRescanTimer);
+        meshRescanTimer = setInterval(() => {
+          connectToRoomMesh();
+        }, 8000);
       }
 
       function addOrUpdatePeer(peerId, userData, conn) {
         let peer = APP.peers.get(peerId);
+        const resolvedName = (userData && userData.name && userData.name !== 'Conectando...' && userData.name !== 'Entrando...') 
+          ? userData.name 
+          : ((peer && peer.name !== 'Conectando...' && peer.name !== 'Entrando...') ? peer.name : 'Colega');
+        const resolvedColor = (userData && userData.color) || (peer ? peer.color : '#10b981');
+        const resolvedHost = (userData && userData.isHost !== undefined) ? !!userData.isHost : (peer ? peer.isHost : false);
+
         if (!peer) {
-          peer = createPeerRecord(peerId, (userData && userData.name) || 'Amigo', (userData && userData.color) || '#10b981', userData && userData.isHost);
-        } else if (userData) {
-          peer.name = userData.name || peer.name;
-          peer.color = userData.color || peer.color;
-          peer.isHost = !!userData.isHost;
+          peer = createPeerRecord(peerId, resolvedName, resolvedColor, resolvedHost);
+        } else {
+          peer.name = resolvedName;
+          peer.color = resolvedColor;
+          peer.isHost = resolvedHost;
         }
+
+        if (userData && userData.mySlot) {
+          peer.slot = userData.mySlot;
+        } else {
+          const match = peerId.match(/_s(\d+)$/);
+          if (match) peer.slot = parseInt(match[1], 10);
+        }
+
         if (conn) peer.dataConn = conn;
+
+        // Atualiza a plaqueta 3D sobre o avatar com o nome real e status de Host
+        if (peer.mesh) {
+          updateNameTagOnMesh(peer.mesh, peer.name, peer.color, peer.isHost, peer.ping);
+          if (userData && userData.hologramUrl) {
+            setAvatarHologram(peer.mesh, userData.hologramUrl);
+          }
+        }
 
         if (userData && userData.x !== undefined && userData.z !== undefined) {
           peer.targetX = userData.x;
@@ -3165,8 +3750,10 @@
             peer.mesh.position.z = userData.z;
           }
         }
+
         updatePeersListUI();
         updateNetworkStatus(true);
+        evaluateRoomHost();
       }
 
       function createPeerRecord(peerId, name, color, isHost = false) {
@@ -3174,11 +3761,15 @@
         mesh.position.set(0, 0, 2);
         scene.add(mesh);
 
+        const slotMatch = peerId.match(/_s(\d+)$/);
+        const slot = slotMatch ? parseInt(slotMatch[1], 10) : 999;
+
         const record = {
           id: peerId,
           name: name,
           color: color,
           isHost: isHost,
+          slot: slot,
           mesh: mesh,
           targetX: 0,
           targetZ: 2,
@@ -3196,6 +3787,7 @@
       function removePeer(peerId) {
         const peer = APP.peers.get(peerId);
         if (peer) {
+          const wasHost = peer.isHost;
           if (peer.mesh) scene.remove(peer.mesh);
           if (peer.audioElem) {
             try { peer.audioElem.pause(); peer.audioElem.remove(); } catch (e) {}
@@ -3204,12 +3796,22 @@
           updatePeersListUI();
           renderWebcamDock();
           if (APP.viewMode === '2d') renderDiscordGrid();
+
+          // Se o peer que saiu era o Host (ou se ficamos sozinhos), reelege o novo Host imediatamente
+          evaluateRoomHost();
         }
       }
 
       function updatePeersListUI() {
+        const total = APP.peers.size + 1;
         const countEl = document.getElementById('hud-peer-count');
-        if (countEl) countEl.textContent = APP.peers.size + 1;
+        if (countEl) countEl.textContent = total;
+
+        const roomTitle = document.getElementById('hud-room-title');
+        if (roomTitle) {
+          const dName = (APP.roomId === 'crateradojota' || !APP.roomId) ? 'Cratera do Jota' : APP.roomId;
+          roomTitle.textContent = `${dName} (${total} online)`;
+        }
 
         const container = document.getElementById('peers-list-content');
         if (!container) return;
@@ -3217,15 +3819,41 @@
 
         const myItem = document.createElement('div');
         myItem.className = 'p-2 rounded-xl bg-slate-900 border border-slate-800 flex justify-between items-center';
-        myItem.innerHTML = `<span><b>${APP.myUser.name}</b> (Você)</span><span class="text-emerald-400">Online</span>`;
+        myItem.innerHTML = `<span><b>${APP.myUser.name}</b> (Você #${APP.mySlot || 1}) ${APP.isHost ? '👑' : ''}</span><span class="text-emerald-400">Online</span>`;
         container.appendChild(myItem);
 
         APP.peers.forEach(p => {
           const item = document.createElement('div');
           item.className = 'p-2 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between items-center';
-          item.innerHTML = `<span>${p.name} ${p.isHost ? '👑' : ''}</span><span class="text-indigo-400 font-mono">${p.ping || 15}ms</span>`;
+          item.innerHTML = `<span><b>${p.name}</b> ${p.isHost ? '👑' : ''}</span><span class="text-indigo-400 font-mono">${p.ping || 15}ms</span>`;
           container.appendChild(item);
         });
+
+        renderWebcamDock();
+        if (APP.viewMode === '2d') renderDiscordGrid();
+      }
+
+      function toggleCompanionBot() {
+        if (APP.companionBot) {
+          if (APP.companionBot.mesh) scene.remove(APP.companionBot.mesh);
+          APP.peers.delete(APP.companionBot.id);
+          APP.companionBot = null;
+          updatePeersListUI();
+          showToast('Robô de teste removido.', 'info');
+          return;
+        }
+
+        const botId = 'bot_' + Math.random().toString(36).substring(2, 7);
+        const botRecord = createPeerRecord(botId, 'Robô Jota 🤖', '#f59e0b', false);
+        botRecord.targetX = 2;
+        botRecord.targetZ = 4;
+        if (botRecord.mesh) {
+          botRecord.mesh.position.set(2, 0, 4);
+          updateEmoteOnAvatar(botRecord.mesh, '🤖');
+        }
+        APP.companionBot = botRecord;
+        updatePeersListUI();
+        showToast('Amigo Robô Jota adicionado para testar! 🤖', 'success');
       }
 
       function getGroundElevation(x, z) {
@@ -3235,18 +3863,36 @@
 
       function exitRoom() {
         if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+        if (meshRescanTimer) { clearInterval(meshRescanTimer); meshRescanTimer = null; }
+        if (hostElectionTimer) { clearTimeout(hostElectionTimer); hostElectionTimer = null; }
+
+        // Avisa aos colegas remanescentes que estamos saindo
+        broadcastToPeers({
+          type: 'peer_leave',
+          peerId: APP.myPeerId,
+          wasHost: APP.isHost
+        });
+
         if (APP.localAudioStream) APP.localAudioStream.getTracks().forEach(t => t.stop());
+        if (APP.localWebcamStream) APP.localWebcamStream.getTracks().forEach(t => t.stop());
         if (APP.localScreenStream) APP.localScreenStream.getTracks().forEach(t => t.stop());
         const tvAudio = document.getElementById('tv-stream-audio');
         if (tvAudio) { tvAudio.pause(); tvAudio.srcObject = null; }
         const discordFeatured = document.getElementById('discord-featured-screen');
         if (discordFeatured) discordFeatured.classList.add('hidden');
-        if (APP.peer) APP.peer.destroy();
+        if (APP.peer) {
+          try { APP.peer.destroy(); } catch (e) {}
+          APP.peer = null;
+        }
         APP.peers.forEach(p => {
           if (p.mesh) scene.remove(p.mesh);
-          if (p.audioElem) { p.audioElem.pause(); p.audioElem.remove(); }
+          if (p.audioElem) { try { p.audioElem.pause(); p.audioElem.remove(); } catch (e) {} }
         });
         APP.peers.clear();
+
+        APP.isHost = false;
+        APP.myUser.isHost = false;
+        APP.mySlot = 1;
 
         currentPos.set(0, 0, 2);
         targetPos.set(0, 0, 2);
@@ -3254,6 +3900,7 @@
 
         document.getElementById('lobby-modal').classList.remove('hidden', 'opacity-0');
         showToast('🚪 Você saiu da sala e retornou ao saguão.', 'info');
+        startLobbyScanner();
       }
 
       function broadcastToPeers(payload) {
@@ -3261,68 +3908,6 @@
           if (peerData.dataConn && peerData.dataConn.open) {
             try { peerData.dataConn.send(payload); } catch (e) {}
           }
-        });
-      }
-
-      function addOrUpdatePeer(peerId, userData, conn) {
-        let peer = APP.peers.get(peerId);
-        if (!peer) {
-          peer = createPeerRecord(peerId, userData.name || 'Amigo', userData.color || '#10b981', userData.isHost);
-        }
-        if (conn) peer.dataConn = conn;
-      }
-
-      function createPeerRecord(peerId, name, color, isHost = false) {
-        const mesh = createAvatarMesh(color, name, isHost, 0);
-        mesh.position.set(0, 0, 0);
-        scene.add(mesh);
-
-        const record = {
-          id: peerId,
-          name: name,
-          color: color,
-          isHost: isHost,
-          mesh: mesh,
-          targetX: 0,
-          targetZ: 0,
-          isSpeaking: false,
-          ping: 0,
-          audioElem: null,
-          dataConn: null,
-          customVolume: 100
-        };
-        APP.peers.set(peerId, record);
-        updatePeersListUI();
-        return record;
-      }
-
-      function removePeer(peerId) {
-        const peer = APP.peers.get(peerId);
-        if (peer) {
-          if (peer.mesh) scene.remove(peer.mesh);
-          APP.peers.delete(peerId);
-          updatePeersListUI();
-        }
-      }
-
-      function updatePeersListUI() {
-        const countEl = document.getElementById('hud-peer-count');
-        if (countEl) countEl.textContent = APP.peers.size + 1;
-
-        const container = document.getElementById('peers-list-content');
-        if (!container) return;
-        container.innerHTML = '';
-
-        const myItem = document.createElement('div');
-        myItem.className = 'p-2 rounded-xl bg-slate-900 border border-slate-800 flex justify-between items-center';
-        myItem.innerHTML = `<span><b>${APP.myUser.name}</b> (Você)</span><span class="text-emerald-400">Online</span>`;
-        container.appendChild(myItem);
-
-        APP.peers.forEach(p => {
-          const item = document.createElement('div');
-          item.className = 'p-2 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between items-center';
-          item.innerHTML = `<span>${p.name}</span><span class="text-indigo-400 font-mono">${p.ping}ms</span>`;
-          container.appendChild(item);
         });
       }
 
@@ -3479,19 +4064,17 @@
         document.getElementById('btn-create-room').addEventListener('click', () => {
           const username = document.getElementById('input-username').value.trim() || 'Viajante';
           APP.myUser.name = username;
-          const code = document.getElementById('input-create-room-code').value.trim() || 'sala-1';
+          let code = document.getElementById('input-create-room-code').value.trim();
+          if (!code) code = 'crateradojota';
           closeLobbyAndStart(code, true);
         });
 
         document.getElementById('btn-join-room').addEventListener('click', () => {
           const username = document.getElementById('input-username').value.trim() || 'Viajante';
           APP.myUser.name = username;
-          const code = document.getElementById('input-room-code').value.trim();
-          if (code) {
-            closeLobbyAndStart(code, false);
-          } else {
-            showToast('Digite o código da sala.', 'warning');
-          }
+          let code = document.getElementById('input-room-code').value.trim();
+          if (!code) code = 'crateradojota';
+          closeLobbyAndStart(code, false);
         });
 
         document.getElementById('btn-solo-demo').addEventListener('click', () => {
@@ -3563,8 +4146,53 @@
             ctx.fillText(btn.getAttribute('data-emoji'), 64, 64);
             applyHologramData(canvas.toDataURL('image/png'));
             document.getElementById('modal-hologram').classList.add('hidden');
+            showToast('Figurinha 3D adicionada!', 'success');
           });
         });
+
+        // Upload de foto / figurinha PNG no Modal do Holograma 3D
+        const btnTriggerHolo = document.getElementById('btn-trigger-upload-hologram');
+        const inputHoloFile = document.getElementById('input-hologram-file');
+        const btnRemoveHolo = document.getElementById('btn-remove-hologram');
+
+        if (btnTriggerHolo && inputHoloFile) {
+          btnTriggerHolo.addEventListener('click', () => {
+            inputHoloFile.click();
+          });
+        }
+
+        if (inputHoloFile) {
+          inputHoloFile.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              applyHologramData(ev.target.result);
+              const modal = document.getElementById('modal-hologram');
+              if (modal) modal.classList.add('hidden');
+              showToast('Foto do perfil / Figurinha 3D adicionada com sucesso! ✨', 'success');
+              inputHoloFile.value = '';
+            };
+            reader.readAsDataURL(file);
+          });
+        }
+
+        if (btnRemoveHolo) {
+          btnRemoveHolo.addEventListener('click', () => {
+            applyHologramData('');
+            const modal = document.getElementById('modal-hologram');
+            if (modal) modal.classList.add('hidden');
+            showToast('Figurinha 3D removida!', 'info');
+          });
+        }
+
+        // Amigo robô para teste
+        const btnBot = document.getElementById('btn-add-companion-bot');
+        if (btnBot) {
+          btnBot.addEventListener('click', () => {
+            toggleCompanionBot();
+          });
+        }
 
         document.querySelectorAll('.emote-btn').forEach(btn => {
           btn.addEventListener('click', () => {
@@ -3671,13 +4299,14 @@
         }
 
         initRadarRoomsUI();
-        scanPublicRoomsRadar();
         renderCachedRoomsUI();
         loadSavedUserProfile();
         populateAudioDevices();
+        startLobbyScanner();
       }
 
       function closeLobbyAndStart(roomId, isHost) {
+        stopLobbyScanner();
         const lobby = document.getElementById('lobby-modal');
         if (lobby) lobby.classList.add('hidden');
 
